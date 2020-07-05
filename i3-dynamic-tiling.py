@@ -8,10 +8,10 @@ import time
 
 # Global variables.
 
-I3DT_DEBUG            = True
+I3DT_DEBUG            = False
 I3DT_WORKSPACE_IGNORE = ["1", "4"]
-I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
-I3DT_SCND_MARK = 'I3DT_SCND_{}'
+I3DT_MAIN_MARK        = 'I3DT_MAIN_{}'
+I3DT_SCND_MARK        = 'I3DT_SCND_{}'
 
 I3DT = dict()
 I3DT_MAIN_LAYOUT = dict()
@@ -21,6 +21,11 @@ previous_window = []
 current_window = []
 
 def i3dt_focus(i3, direction):
+
+    # Get focused window.
+    tree = i3.get_tree()
+    focused = tree.find_focused()
+    workspace = focused.workspace()
 
     index = 0;
     focused_index = []
@@ -85,6 +90,7 @@ def i3dt_execute(i3, e):
         if focused.id == c.id:
             main_is_focused = True
             break
+
     if main_is_focused:
         if scnd:
             scnd_children = scnd.descendants()
@@ -93,7 +99,7 @@ def i3dt_execute(i3, e):
         else:
             i3.command('[con_id={}] focus'\
                     .format(main.id))
-    elif scnd:
+    else:
         scnd_children = scnd.descendants()
         i3.command('[con_id={}] focus'\
                 .format(scnd_children[-1]))
@@ -163,7 +169,6 @@ def i3dt_tabbed_simple_toggle(i3):
         # Store main layout and make tabbed.
         main = main[0]
         main_children = main.descendants()
-        print(main_children)
         I3DT_MAIN_LAYOUT[key] = main.layout
         if not main.layout == 'tabbed':
             command.append('[con_id={}] layout tabbed'\
@@ -266,6 +271,9 @@ def i3dt_tabbed_toggle(i3):
                 command.append('[con_id={}] layout tabbed'\
                         .format(main_children[0].id))
 
+            # Store the focused container id.
+            main_focused_id = main.focus[0]
+
         # Secondary container.
         scnd = tree.find_marked(scnd_mark)
         if scnd:
@@ -274,11 +282,32 @@ def i3dt_tabbed_toggle(i3):
             # Store the layout of the secondary container.
             I3DT_SCND_LAYOUT[key] = scnd.layout
 
-            # Find all windows in the secondary container, then mark and move them.
+            # Make the secondary container tabbed.
             scnd_children = scnd.descendants()
+            if not scnd.layout == 'tabbed':
+                command.append('[con_id={}] layout tabbed'\
+                        .format(scnd_children[0].id))
+
+            # Focus last main window.
+            command.append('[con_id={}] focus'\
+                    .format(main_children[-1].id))
+
+            # Find all windows in the secondary container, then mark and move
+            # them. This is done in reverse due to the fact that i3 always puts
+            # the windows after the focused container, and thus reversing the
+            # order.
+            move_commands = []
             for i, c in enumerate(scnd_children):
-                command.append('[con_id={}] mark {}, move to mark {}'\
+                move_commands.append('[con_id={}] mark {}, move to mark {}'\
                         .format(c.id, tbbd_mark + str(i), main_mark))
+            move_commands.reverse()
+            command.extend(move_commands)
+
+        # Focus the window in focus before this script.
+        command.append('[con_id={}] focus'\
+                .format(main_focused_id))
+        command.append('[con_id={}] focus'\
+                .format(focused.id))
 
     else:
 
@@ -324,7 +353,6 @@ def i3dt_tabbed_toggle(i3):
 
     # Execute the command chain.
     if command:
-        print(command)
         i3.command(', '.join(command))
         command = []
 
@@ -517,52 +545,13 @@ def on_workspace_focus(i3, e):
             for m in c.marks:
                 if m == main_mark:
                     I3DT[key]['mode'] = 'i3dt'
-                    I3DT[key]['main']['id'] = c.id
                     break
                 elif m == scnd_mark:
                     I3DT[key]['mode'] = 'i3dt'
-                    I3DT[key]['scnd']['id'] = c.id
                     break
                 elif m.startswith(tbbd_mark):
                     I3DT[key]['mode'] = 'tabbed'
                     break
-
-        # Restore I3DT session.
-        if I3DT[key]['mode'] in ['i3dt', 'tabbed']:
-
-            # Find the children of the main container.
-            main = tree.find_marked(main_mark)[0]
-            I3DT[key]['main']['id'] = main.id
-            I3DT[key]['main']['layout'] = main.layout
-            for c in main.descendants():
-                if c.marks:
-                    for m in c.marks:
-                        if m.startswith(tbbd_mark):
-                            I3DT[key]['scnd']['children'].append(c.id)
-                            break
-                else:
-                    I3DT[key]['main']['children'].append(c.id)
-
-            # Find the children of the secondary container.
-            scnd = tree.find_marked(scnd_mark)
-            if scnd:
-                I3DT[key]['scnd']['id'] = scnd[0].id
-                I3DT[key]['scnd']['layout'] = scnd[0].layout
-                for c in scnd[0].descendants():
-                    I3DT[key]['scnd']['children'].append(c.id)
-
-            # Check if there is a workspace global container for the main and
-            # secondary container.
-            if not containers[0].marks:
-                is_global = True
-                for n in containers[0].nodes:
-                    for m in n.marks:
-                        if not m in [main_mark, scnd_mark]:
-                            is_global = False
-                            break
-                if is_global:
-                    I3DT[key]['glbl']['id'] = containers[0].id
-                    I3DT[key]['glbl']['orientation'] = containers[0].orientation
 
         # Create I3DT session.
         if I3DT[key]['mode'] == 'i3':
