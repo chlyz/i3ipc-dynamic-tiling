@@ -27,9 +27,9 @@ _Ubuntu 18.04_ with _i3 4.18.1_. Features on the radar:
   _secondary_ container.
 - [ ] `window::move` (_Ongoing_): Windows can be moved but not yet ensured to
   be handled dynamically.
-- [ ] `window::focus` (_Ongoing_): Implement moving focus between windows as
-  they where in a list, without having to consider the position and layout of
-  the _main_ and _secondary_ containers.
+- [x] `window::focus`: Implement moving focus between windows as they where in
+  a circular buffer, without having to consider the position and layout of the
+  _main_ and _secondary_ containers.
 - [x] `workspace::focus`: Tries to recreate the dynamic tiling after a restart.
 
 Special effects:
@@ -47,12 +47,12 @@ The configuration of _i3-dynamic-tiling_ is done in two ways:
 
 ### Environmental variables
 
-  - `I3DT_WORKSPACE_IGNORE`: Workspaces to ignore, that is, use `i3` defaults
-    and do not apply dynamic tiling for these workspaces.
+- `I3DT_WORKSPACE_IGNORE`: Workspaces to ignore, that is, use `i3` defaults and
+  do not apply dynamic tiling for these workspaces.
 
-  - `I3DT_WORKSPACE_ONLY`: Only apply dynamic tiling to these workspaces and
-    let `i3` defaults rule the others. This takes precedence over
-    `I3DT_WORKSPACE_IGNORE`.
+- `I3DT_WORKSPACE_ONLY`: Only apply dynamic tiling to these workspaces and let
+  `i3` defaults rule the others. This takes precedence over
+  `I3DT_WORKSPACE_IGNORE`.
 
 ### Configuration file
 

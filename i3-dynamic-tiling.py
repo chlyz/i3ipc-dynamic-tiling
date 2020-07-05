@@ -9,7 +9,7 @@ import time
 # Global variables.
 
 I3DT_DEBUG            = True
-I3DT_WORKSPACE_IGNORE = ["1"]
+I3DT_WORKSPACE_IGNORE = ["1", "4"]
 I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK = 'I3DT_SCND_{}'
 
@@ -19,6 +19,25 @@ I3DT_SCND_LAYOUT = dict()
 
 previous_window = []
 current_window = []
+
+def i3dt_focus(i3, direction):
+
+    index = 0;
+    focused_index = []
+    windows = []
+    for c in workspace.descendants():
+        if not c.name == None:
+            windows.append(c.id)
+            if c.id == focused.id:
+                focused_index = index
+            index += 1
+
+    if direction == 'next':
+        i3.command('[con_id={}] focus'\
+                .format(windows[(focused_index + 1) % len(windows)]))
+    elif direction == 'prev':
+        i3.command('[con_id={}] focus'\
+                .format(windows[(focused_index - 1) % len(windows)]))
 
 def i3dt_execute(i3, e):
 
@@ -79,27 +98,6 @@ def i3dt_execute(i3, e):
         i3.command('[con_id={}] focus'\
                 .format(scnd_children[-1]))
 
-def i3dt_layout(i3, e):
-
-    global I3DT
-
-    if I3DT_DEBUG:
-        print('\nLayout')
-        print('======')
-
-    tree = i3.get_tree()
-    focused = tree.find_focused()
-    workspace = focused.workspace()
-
-    # Update container layout.
-    key = workspace.name
-    for c in ['main', 'scnd']:
-        if focused.id in I3DT[key][c]['children']:
-            I3DT[key][c]['layout'] = tree.find_by_id(I3DT[key][c]['id']).layout
-
-    if I3DT_DEBUG:
-        print('I3DT {}: {}'.format(key, I3DT[key]))
-
 def i3dt_create_container(i3, window, workspace, mark):
 
     global I3DT
@@ -131,7 +129,7 @@ def i3dt_check_window_in_container(window, container):
 
     return is_in_container, number_of_descendants
 
-def i3dt_tabbed_toggle_simple(i3):
+def i3dt_tabbed_simple_toggle(i3):
     global I3DT
 
     # Commmand chain array.
@@ -474,7 +472,6 @@ def i3dt_kill(i3):
         print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
-
 def on_workspace_focus(i3, e):
 
     global I3DT
@@ -683,12 +680,16 @@ def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
         if e.binding.command == 'nop i3dt_kill':
             i3dt_kill(i3)
+        elif e.binding.command == 'nop i3dt_focus next':
+            i3dt_focus(i3, 'next')
+        elif e.binding.command == 'nop i3dt_focus prev':
+            i3dt_focus(i3, 'prev')
         elif e.binding.command == 'nop i3dt_reflect':
             i3dt_reflect(i3)
         elif e.binding.command == 'nop i3dt_mirror':
             i3dt_mirror(i3)
         elif e.binding.command == 'nop i3dt_tabbed_toggle':
-            i3dt_tabbed_toggle_simple(i3)
+            i3dt_tabbed_toggle(i3)
         elif e.binding.command == 'nop i3dt_tabbed_simple_toggle':
             i3dt_tabbed_simple_toggle(i3)
     else:
