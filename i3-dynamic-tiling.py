@@ -8,30 +8,30 @@ import time
 
 # Global variables.
 
-DWM_DEBUG     = True
-DWM_IGNORE    = ["1"]
+I3DT_DEBUG     = True
+I3DT_IGNORE    = ["1"]
 
-DWM_MAIN_MARK = 'DWM_MAIN_{}'
-DWM_SCND_MARK = 'DWM_SCND_{}'
+I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
+I3DT_SCND_MARK = 'I3DT_SCND_{}'
 
-# DWM_TBBD_MARK = 'DWM_TBBD_{}'
-DWM = dict()
-DWM_MODE = dict()
-DWM_MAIN = dict()
-DWM_SCND = dict()
+# I3DT_TBBD_MARK = 'I3DT_TBBD_{}'
+I3DT = dict()
+I3DT_MODE = dict()
+I3DT_MAIN = dict()
+I3DT_SCND = dict()
 
-DWM_MAIN_ID = dict()
-DWM_SCND_ID = dict()
+I3DT_MAIN_ID = dict()
+I3DT_SCND_ID = dict()
 
-DWM_MAIN_LAYOUT = dict()
-DWM_SCND_LAYOUT = dict()
+I3DT_MAIN_LAYOUT = dict()
+I3DT_SCND_LAYOUT = dict()
 
 previous_window = []
 current_window = []
 
-def i3_dwm_execute(i3, e):
+def i3dt_execute(i3, e):
 
-    global DWM
+    global I3DT
 
 
     # Get focused window.
@@ -40,51 +40,51 @@ def i3_dwm_execute(i3, e):
     workspace = focused.workspace()
 
     key = workspace.name
-    if not key in DWM:
-        DWM[key] = {
+    if not key in I3DT:
+        I3DT[key] = {
                 'mode': 'i3',
                 'glbl': {'id': [], 'orientation': 'horizontal'},
                 'main': {'id': [], 'layout': 'splitv', 'children': []},
                 'scnd': {'id': [], 'layout': 'splitv', 'children': []},
                 }
     # Check if workspace should be handled.
-    if key in DWM_IGNORE:
+    if key in I3DT_IGNORE:
         return
 
-    # Initialize the DWM dictionary.
-    DWM[key]['mode'] = 'dwm'
+    # Initialize the I3DT dictionary.
+    I3DT[key]['mode'] = 'i3dt'
 
     # If focused is in the main container, then focus either the main container
     # of the last child in the secondary container.
-    # main_mark = DWM_MAIN_MARK.format(key)
+    # main_mark = I3DT_MAIN_MARK.format(key)
     # main = workspace.find_marked(main_mark)
     # scnd = tree.find_marked(scnd_mark)
-    # scnd_mark = DWM_SCND_MARK.format(key)
+    # scnd_mark = I3DT_SCND_MARK.format(key)
     # if main:
     #     main = main[0]
     #     main_children = main.descendants()
     #     main_ids = []
     #     for c in
 
-    # if focused.id in DWM[key]['main']['children']:
-    #     if DWM[key]['scnd']['id']:
+    # if focused.id in I3DT[key]['main']['children']:
+    #     if I3DT[key]['scnd']['id']:
     #         i3.command('[con_id={}] focus'\
-    #                 .format(DWM[key]['scnd']['children'][-1]))
+    #                 .format(I3DT[key]['scnd']['children'][-1]))
     #     else:
     #         i3.command('[con_id={}] focus'\
-    #                 .format(DWM[key]['main']['id']))
+    #                 .format(I3DT[key]['main']['id']))
 
     # If focused is in the secondary container, then focus the last child in
     # the secondary container.
-    # if focused.id in DWM[key]['scnd']['children']:
+    # if focused.id in I3DT[key]['scnd']['children']:
     #     i3.command('[con_id={}] focus'\
-    #             .format(DWM[key]['scnd']['children'][-1]))
+    #             .format(I3DT[key]['scnd']['children'][-1]))
 
-def i3_dwm_layout(i3, e):
+def i3dt_layout(i3, e):
 
-    global DWM
+    global I3DT
 
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
         print('\nLayout')
         print('======')
 
@@ -95,30 +95,30 @@ def i3_dwm_layout(i3, e):
     # Update container layout.
     key = workspace.name
     for c in ['main', 'scnd']:
-        if focused.id in DWM[key][c]['children']:
-            DWM[key][c]['layout'] = tree.find_by_id(DWM[key][c]['id']).layout
+        if focused.id in I3DT[key][c]['children']:
+            I3DT[key][c]['layout'] = tree.find_by_id(I3DT[key][c]['id']).layout
 
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
-def i3_dwm_create_container(i3, window, workspace, mark):
+def i3dt_create_container(i3, window, workspace, mark):
 
-    global DWM
+    global I3DT
 
     # Create a temporary container.
-    i3.command('open, mark DWM_TEMP, split v, layout splitv')
+    i3.command('open, mark I3DT_TEMP, split v, layout splitv')
 
     # Move the window to the temporary container.
-    i3.command('[con_id={}] floating disable, move to mark DWM_TEMP'.format(window.id))
+    i3.command('[con_id={}] floating disable, move to mark I3DT_TEMP'.format(window.id))
 
     # Create the parent container.
-    i3.command('[con_mark=DWM_TEMP] focus, focus parent')
+    i3.command('[con_mark=I3DT_TEMP] focus, focus parent')
     i3.command('mark {}'.format(mark))
 
     # Kill the temporary container.
-    i3.command('[con_mark=DWM_TEMP] kill')
+    i3.command('[con_mark=I3DT_TEMP] kill')
 
-def i3_dwm_check_window_in_container(window, container):
+def i3dt_check_window_in_container(window, container):
     is_in_container = False
     number_of_descendants = 0
 
@@ -132,8 +132,8 @@ def i3_dwm_check_window_in_container(window, container):
 
     return is_in_container, number_of_descendants
 
-def i3_dwm_tabbed_toggle_simple(i3):
-    global DWM
+def i3dt_tabbed_toggle_simple(i3):
+    global I3DT
 
     # Commmand chain array.
     command = []
@@ -145,29 +145,29 @@ def i3_dwm_tabbed_toggle_simple(i3):
 
     # Check if workspace should be handled.
     key = workspace.name
-    if key in DWM_IGNORE:
+    if key in I3DT_IGNORE:
         return
 
-    main_mark = DWM_MAIN_MARK.format(key)
-    scnd_mark = DWM_SCND_MARK.format(key)
+    main_mark = I3DT_MAIN_MARK.format(key)
+    scnd_mark = I3DT_SCND_MARK.format(key)
     tbbd_mark = scnd_mark + "_TABBED_"
 
     main = tree.find_marked(main_mark)
 
-    if DWM[key]['mode'] == 'dwm':
+    if I3DT[key]['mode'] == 'i3dt':
 
         # Exit if there is no main container.
         if not main:
             return
 
         # Set tabbed mode enabled.
-        DWM[key]['mode'] = 'simple_tabbed'
+        I3DT[key]['mode'] = 'simple_tabbed'
 
         # Store main layout and make tabbed.
         main = main[0]
         main_children = main.descendants()
         print(main_children)
-        DWM_MAIN_LAYOUT[key] = main.layout
+        I3DT_MAIN_LAYOUT[key] = main.layout
         if not main.layout == 'tabbed':
             command.append('[con_id={}] layout tabbed'\
                     .format(main_children[0].id))
@@ -180,7 +180,7 @@ def i3_dwm_tabbed_toggle_simple(i3):
         # Store the layout of the secondary container and make tabbed.
         scnd = scnd[0]
         scnd_children = scnd.descendants()
-        DWM_SCND_LAYOUT[key] = scnd.layout
+        I3DT_SCND_LAYOUT[key] = scnd.layout
         if not scnd.layout == 'tabbed':
             command.append('[con_id={}] layout tabbed'\
                     .format(scnd_children[0].id))
@@ -191,10 +191,10 @@ def i3_dwm_tabbed_toggle_simple(i3):
         command.append('[con_id={}] focus'.\
                 format(focused.id))
 
-    elif DWM[key]['mode'] == 'simple_tabbed':
+    elif I3DT[key]['mode'] == 'simple_tabbed':
 
-        # Set dwm mode enabled.
-        DWM[key]['mode'] = 'dwm'
+        # Set i3dt mode enabled.
+        I3DT[key]['mode'] = 'i3dt'
 
         scnd = i3.get_tree().find_marked(scnd_mark)
         if scnd:
@@ -206,32 +206,32 @@ def i3_dwm_tabbed_toggle_simple(i3):
 
             # Recreate the layout of the secondary container.
             scnd_children = scnd.descendants()
-            if not scnd.layout == DWM_SCND_LAYOUT[key]:
+            if not scnd.layout == I3DT_SCND_LAYOUT[key]:
                 command.append('[con_id={}] layout {}'\
-                        .format(scnd_children[0].id, DWM_SCND_LAYOUT[key]))
+                        .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
 
         if main:
             main = main[0]
             main_children = main.descendants()
-            if not main.layout == DWM_MAIN_LAYOUT[key]:
+            if not main.layout == I3DT_MAIN_LAYOUT[key]:
                 command.append('[con_id={}] layout {}'\
-                        .format(main_children[0].id, DWM_MAIN_LAYOUT[key]))
+                        .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
 
     # Execute the command chain.
     if command:
         i3.command(', '.join(command))
 
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 # The goal of tabbing mode, but not practical.
-def i3_dwm_tabbed_toggle(i3):
+def i3dt_tabbed_toggle(i3):
 
-    global DWM
-    global DWM_MAIN_LAYOUT
-    global DWM_SCND_LAYOUT
+    global I3DT
+    global I3DT_MAIN_LAYOUT
+    global I3DT_SCND_LAYOUT
 
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
         print('\nWorkspace::Tabbed')
         print('=================')
 
@@ -244,31 +244,30 @@ def i3_dwm_tabbed_toggle(i3):
 
     # Check if workspace should be handled.
     key = workspace.name
-    if key in DWM_IGNORE:
+    if key in I3DT_IGNORE:
         return
 
-    main_mark = DWM_MAIN_MARK.format(key)
-    scnd_mark = DWM_SCND_MARK.format(key)
+    main_mark = I3DT_MAIN_MARK.format(key)
+    scnd_mark = I3DT_SCND_MARK.format(key)
     tbbd_mark = scnd_mark + "_TABBED_"
 
     main = tree.find_marked(main_mark)
 
-    if DWM[key]['mode'] == 'dwm':
+    if I3DT[key]['mode'] == 'i3dt':
 
         # Main container.
         if main:
             main = main[0]
 
             # Set tabbed mode enabled.
-            DWM[key]['mode'] = 'tabbed'
+            I3DT[key]['mode'] = 'tabbed'
 
             # Store main layout and make tabbed.
             main_children = main.descendants()
-            DWM_MAIN_LAYOUT[key] = main.layout
+            I3DT_MAIN_LAYOUT[key] = main.layout
             if not main.layout == 'tabbed':
                 command.append('[con_id={}] layout tabbed'\
                         .format(main_children[0].id))
-            print('main')
 
         # Secondary container.
         scnd = tree.find_marked(scnd_mark)
@@ -276,7 +275,7 @@ def i3_dwm_tabbed_toggle(i3):
             scnd = scnd[0]
 
             # Store the layout of the secondary container.
-            DWM_SCND_LAYOUT[key] = scnd.layout
+            I3DT_SCND_LAYOUT[key] = scnd.layout
 
             # Find all windows in the secondary container, then mark and move them.
             scnd_children = scnd.descendants()
@@ -287,7 +286,7 @@ def i3_dwm_tabbed_toggle(i3):
     else:
 
         # Set tabbed mode disabled.
-        DWM[key]['mode'] = 'dwm'
+        I3DT[key]['mode'] = 'i3dt'
 
         # Exit if there is no main container.
         if not main:
@@ -313,16 +312,16 @@ def i3_dwm_tabbed_toggle(i3):
                                 .format(main.id))
                         i3.command(', '.join(command))
                         command = []
-                        i3_dwm_create_container(i3, c, workspace, scnd_mark)
+                        i3dt_create_container(i3, c, workspace, scnd_mark)
                         scnd = i3.get_tree().find_marked(scnd_mark)
                         command.append('[con_id={}] layout {}'\
-                                 .format(c.id, DWM_SCND_LAYOUT[key]))
+                                 .format(c.id, I3DT_SCND_LAYOUT[key]))
 
                     break
 
         # Restore the main layout.
         command.append('[con_id={}] layout {}'\
-                .format(main_children[0].id, DWM_MAIN_LAYOUT[key]))
+                .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
 
         command.append('[con_id={}] focus'.format(focused.id))
 
@@ -336,28 +335,57 @@ def i3_dwm_tabbed_toggle(i3):
 
 
 
-def i3_dwm_promote_demote(i3):
+def i3dt_promote_demote(i3):
     print('Promote or demote')
 
 
-def i3_dwm_reflect(i3):
+def i3dt_mirror(i3):
 
-    global DWM
+    global I3DT
 
     tree = i3.get_tree()
     focused = tree.find_focused()
     workspace = focused.workspace()
 
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
+        print('\nWorkspace::Mirror')
+        print('=================')
+
+    # Only reflect the workspace if the secondary container exist and for the
+    # i3dt standard mode.
+    key = workspace.name
+    main_mark = I3DT_MAIN_MARK.format(key)
+    main = tree.find_marked(main_mark)
+    scnd_mark = I3DT_SCND_MARK.format(key)
+    scnd = i3.get_tree().find_marked(scnd_mark)
+    if scnd and I3DT[key]['mode'] == 'i3dt':
+
+        # Swap the containers.
+        i3.command('[con_id={}] swap container with con_id {}'\
+                .format(main[0].id, scnd[0].id))
+
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
+
+
+def i3dt_reflect(i3):
+
+    global I3DT
+
+    tree = i3.get_tree()
+    focused = tree.find_focused()
+    workspace = focused.workspace()
+
+    if I3DT_DEBUG:
         print('\nWorkspace::Reflect')
         print('==================')
 
     # Only reflect the workspace if the secondary container exist and for the
-    # dwm standard mode.
+    # i3dt standard mode.
     key = workspace.name
-    scnd_mark = DWM_SCND_MARK.format(key)
+    scnd_mark = I3DT_SCND_MARK.format(key)
     scnd = i3.get_tree().find_marked(scnd_mark)
-    if scnd and DWM[key]['mode'] == 'dwm':
+    if scnd and I3DT[key]['mode'] == 'i3dt':
 
         # Change the split container.
         scnd = scnd[0]
@@ -381,15 +409,15 @@ def i3_dwm_reflect(i3):
             i3.command('[con_id={}] layout toggle split'\
                     .format(scnd_children[0].id))
 
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
-def i3_dwm_kill(i3):
+def i3dt_kill(i3):
 
-    global DWM
+    global I3DT
 
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
         print('\nWindow::Kill')
         print('============')
 
@@ -400,32 +428,32 @@ def i3_dwm_kill(i3):
 
     # Check if focused window is in the main container.
     key = workspace.name
-    is_in_main = focused.id in DWM[key]['main']['children']
+    is_in_main = focused.id in I3DT[key]['main']['children']
 
     if not is_in_main \
-            or (is_in_main and len(DWM[key]['main']['children']) > 1):
+            or (is_in_main and len(I3DT[key]['main']['children']) > 1):
         # Not in main container or there are several windows in the main
         # container. Thus, it is safe to kill the focused window.
         i3.command('[con_id={}] kill'.format(focused.id))
-        if focused.id in DWM[key]['main']['children']:
-            DWM[key]['main']['children'].remove(focused.id)
-            if not DWM[key]['main']['children']:
-                DWM[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
-        if focused.id in DWM[key]['scnd']['children']:
-            DWM[key]['scnd']['children'].remove(focused.id)
-            if not DWM[key]['scnd']['children']:
-                DWM[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
+        if focused.id in I3DT[key]['main']['children']:
+            I3DT[key]['main']['children'].remove(focused.id)
+            if not I3DT[key]['main']['children']:
+                I3DT[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
+        if focused.id in I3DT[key]['scnd']['children']:
+            I3DT[key]['scnd']['children'].remove(focused.id)
+            if not I3DT[key]['scnd']['children']:
+                I3DT[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
     else:
         # The focused window is the only window in the main container. If
         # there is a secondary container, swap the focused window with the
         # first window in the second container and then kill the, now
         # moved, focused window. Otherwise just kill the focused window.
-        if DWM[key]['scnd']['children']:
+        if I3DT[key]['scnd']['children']:
             # Get and remove the first element in the secondary container. If
             # empty reset the container.
-            scnd_id = DWM[key]['scnd']['children'].pop(0)
-            if not DWM[key]['scnd']['children']:
-                DWM[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
+            scnd_id = I3DT[key]['scnd']['children'].pop(0)
+            if not I3DT[key]['scnd']['children']:
+                I3DT[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
 
             # Swap the containers.
             i3.command('[con_id={}] swap container with con_id {}'\
@@ -433,24 +461,24 @@ def i3_dwm_kill(i3):
             i3.command('[con_id={}] focus'.format(scnd_id))
 
             # Append the window to the main container.
-            DWM[key]['main']['children'].append(scnd_id)
+            I3DT[key]['main']['children'].append(scnd_id)
 
         # Kill the window.
         i3.command('[con_id={}] kill'.format(focused.id))
-        DWM[key]['main']['children'].remove(focused.id)
-        if not DWM[key]['main']['children']:
-            DWM[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
-            DWM[key]['glbl'] = {'id': [], 'orientation': 'horizontal'}
-            DWM[key]['mode'] = 'dwm'
+        I3DT[key]['main']['children'].remove(focused.id)
+        if not I3DT[key]['main']['children']:
+            I3DT[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
+            I3DT[key]['glbl'] = {'id': [], 'orientation': 'horizontal'}
+            I3DT[key]['mode'] = 'i3dt'
 
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
 
 def on_workspace_focus(i3, e):
 
-    global DWM
+    global I3DT
 
     tree = i3.get_tree()
     # focused = tree.find_focused()
@@ -458,11 +486,11 @@ def on_workspace_focus(i3, e):
     # ws_name = workspace.name
     key = e.current.name
 
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
         print('\nWorkspace::Focus')
         print('================')
 
-    if not key in DWM:
+    if not key in I3DT:
 
         # Get descendants.
         containers = e.current.descendants()
@@ -471,8 +499,8 @@ def on_workspace_focus(i3, e):
         if not containers:
             return
 
-        # Initialize the DWM dictionary.
-        DWM[key] = {
+        # Initialize the I3DT dictionary.
+        I3DT[key] = {
                 'mode': 'i3',
                 'glbl': {'id': [], 'orientation': 'horizontal'},
                 'main': {'id': [], 'layout': 'splitv', 'children': []},
@@ -480,52 +508,52 @@ def on_workspace_focus(i3, e):
                 }
 
         # Exit if workspace is in the ignore list.
-        if key in DWM_IGNORE:
-            if DWM_DEBUG:
-                print('DWM {}: {}'.format(key, DWM[key]))
+        if key in I3DT_IGNORE:
+            if I3DT_DEBUG:
+                print('I3DT {}: {}'.format(key, I3DT[key]))
             return
 
         # Check the container marks for the main and secondary container.
-        main_mark = DWM_MAIN_MARK.format(e.current.name)
-        scnd_mark = DWM_SCND_MARK.format(e.current.name)
+        main_mark = I3DT_MAIN_MARK.format(e.current.name)
+        scnd_mark = I3DT_SCND_MARK.format(e.current.name)
         tbbd_mark = scnd_mark +  "_TABBED_"
         for c in containers:
             for m in c.marks:
                 if m == main_mark:
-                    DWM[key]['mode'] = 'dwm'
-                    DWM[key]['main']['id'] = c.id
+                    I3DT[key]['mode'] = 'i3dt'
+                    I3DT[key]['main']['id'] = c.id
                     break
                 elif m == scnd_mark:
-                    DWM[key]['mode'] = 'dwm'
-                    DWM[key]['scnd']['id'] = c.id
+                    I3DT[key]['mode'] = 'i3dt'
+                    I3DT[key]['scnd']['id'] = c.id
                     break
                 elif m.startswith(tbbd_mark):
-                    DWM[key]['mode'] = 'tabbed'
+                    I3DT[key]['mode'] = 'tabbed'
                     break
 
-        # Restore DWM session.
-        if DWM[key]['mode'] in ['dwm', 'tabbed']:
+        # Restore I3DT session.
+        if I3DT[key]['mode'] in ['i3dt', 'tabbed']:
 
             # Find the children of the main container.
             main = tree.find_marked(main_mark)[0]
-            DWM[key]['main']['id'] = main.id
-            DWM[key]['main']['layout'] = main.layout
+            I3DT[key]['main']['id'] = main.id
+            I3DT[key]['main']['layout'] = main.layout
             for c in main.descendants():
                 if c.marks:
                     for m in c.marks:
                         if m.startswith(tbbd_mark):
-                            DWM[key]['scnd']['children'].append(c.id)
+                            I3DT[key]['scnd']['children'].append(c.id)
                             break
                 else:
-                    DWM[key]['main']['children'].append(c.id)
+                    I3DT[key]['main']['children'].append(c.id)
 
             # Find the children of the secondary container.
             scnd = tree.find_marked(scnd_mark)
             if scnd:
-                DWM[key]['scnd']['id'] = scnd[0].id
-                DWM[key]['scnd']['layout'] = scnd[0].layout
+                I3DT[key]['scnd']['id'] = scnd[0].id
+                I3DT[key]['scnd']['layout'] = scnd[0].layout
                 for c in scnd[0].descendants():
-                    DWM[key]['scnd']['children'].append(c.id)
+                    I3DT[key]['scnd']['children'].append(c.id)
 
             # Check if there is a workspace global container for the main and
             # secondary container.
@@ -537,11 +565,11 @@ def on_workspace_focus(i3, e):
                             is_global = False
                             break
                 if is_global:
-                    DWM[key]['glbl']['id'] = containers[0].id
-                    DWM[key]['glbl']['orientation'] = containers[0].orientation
+                    I3DT[key]['glbl']['id'] = containers[0].id
+                    I3DT[key]['glbl']['orientation'] = containers[0].orientation
 
-        # Create DWM session.
-        if DWM[key]['mode'] == 'i3':
+        # Create I3DT session.
+        if I3DT[key]['mode'] == 'i3':
 
             # Find all windows with a valid name.
             focused = []
@@ -574,33 +602,33 @@ def on_workspace_focus(i3, e):
                 # Create the main and secondary containers.
                 if no_main:
                     # Main container.
-                    i3_dwm_create_container(i3, w, e.current, main_mark)
+                    i3dt_create_container(i3, w, e.current, main_mark)
                     no_main = False
                 elif no_scnd:
                     # Secondary container.
-                    i3.command('[con_id={}] focus'.format(DWM[key]['main']['id']))
-                    i3_dwm_create_container(i3, w, e.current, scnd_mark)
+                    i3.command('[con_id={}] focus'.format(I3DT[key]['main']['id']))
+                    i3dt_create_container(i3, w, e.current, scnd_mark)
                     no_scnd = False
                 else:
                     # Mark the window to the secondary container.
-                    DWM[key]['scnd']['children'].append(w.id)
+                    I3DT[key]['scnd']['children'].append(w.id)
 
             # Focus the correct window.
             i3.command('[con_id={}] focus'.format(focused))
 
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
 def on_window_new(i3, e):
 
-    global DWM
+    global I3DT
 
     # Commmand chain array.
     command = []
 
     # Print debug info.
-    if DWM_DEBUG:
+    if I3DT_DEBUG:
         print('\nWindow::New')
         print('===========')
 
@@ -609,33 +637,33 @@ def on_window_new(i3, e):
     window = tree.find_focused()
     workspace = window.workspace()
 
-    # Initialize the DWM default dictionary.
+    # Initialize the I3DT default dictionary.
     key = workspace.name
-    if not key in DWM:
-        DWM[key] = {
-                'mode': 'dwm',
+    if not key in I3DT:
+        I3DT[key] = {
+                'mode': 'i3dt',
                 'glbl': {'id': [], 'orientation': 'horizontal'},
                 'main': {'id': [], 'layout': 'splitv', 'children': []},
                 'scnd': {'id': [], 'layout': 'splitv', 'children': []},
                 }
 
     # If workspace should be ignored set the mode to i3 and return.
-    if key in DWM_IGNORE:
-        DWM[key]['mode'] = 'i3'
+    if key in I3DT_IGNORE:
+        I3DT[key]['mode'] = 'i3'
         return
 
-    # Workspace is handled by DWM. Create the main and the secondary containers
+    # Workspace is handled by I3DT. Create the main and the secondary containers
     # dynamically as needed.
-    main_mark = DWM_MAIN_MARK.format(workspace.name)
+    main_mark = I3DT_MAIN_MARK.format(workspace.name)
     main = workspace.find_marked(main_mark)
     if not main:
-        i3_dwm_create_container(i3, window, workspace, main_mark)
+        i3dt_create_container(i3, window, workspace, main_mark)
     else:
-        scnd_mark = DWM_SCND_MARK.format(workspace.name)
+        scnd_mark = I3DT_SCND_MARK.format(workspace.name)
         scnd  = workspace.find_marked(scnd_mark)
         if not scnd:
             i3.command('[con_id={}] focus'.format(main[0].id))
-            i3_dwm_create_container(i3, window, workspace, scnd_mark)
+            i3dt_create_container(i3, window, workspace, scnd_mark)
         else:
             command.append('[con_id={}] move to mark {}'\
                     .format(window.id, scnd_mark))
@@ -648,23 +676,25 @@ def on_window_new(i3, e):
         i3.command(', '.join(command))
 
     # Print debug info.
-    if DWM_DEBUG:
-        print('DWM {}: {}'.format(key, DWM[key]))
+    if I3DT_DEBUG:
+        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
 def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
-        if e.binding.command == 'nop i3_dwm_kill':
-            i3_dwm_kill(i3)
-        elif e.binding.command == 'nop i3_dwm_reflect':
-            i3_dwm_reflect(i3)
-        elif e.binding.command == 'nop i3_dwm_tabbed_toggle':
-            i3_dwm_tabbed_toggle_simple(i3)
-        elif e.binding.command == 'nop i3_dwm_tabbed_simple_toggle':
-            i3_dwm_tabbed_simple_toggle(i3)
+        if e.binding.command == 'nop i3dt_kill':
+            i3dt_kill(i3)
+        elif e.binding.command == 'nop i3dt_reflect':
+            i3dt_reflect(i3)
+        elif e.binding.command == 'nop i3dt_mirror':
+            i3dt_mirror(i3)
+        elif e.binding.command == 'nop i3dt_tabbed_toggle':
+            i3dt_tabbed_toggle_simple(i3)
+        elif e.binding.command == 'nop i3dt_tabbed_simple_toggle':
+            i3dt_tabbed_simple_toggle(i3)
     else:
         if e.binding.command.startswith('exec'):
-            i3_dwm_execute(i3, e)
+            i3dt_execute(i3, e)
 
 
 i3 = i3ipc.Connection()
