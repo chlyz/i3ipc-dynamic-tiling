@@ -33,6 +33,13 @@ def i3_dwm_execute(i3, e):
 
     global DWM
 
+
+    # Get focused window.
+    tree = i3.get_tree()
+    focused = tree.find_focused()
+    workspace = focused.workspace()
+
+    key = workspace.name
     if not key in DWM:
         DWM[key] = {
                 'mode': 'i3',
@@ -40,14 +47,7 @@ def i3_dwm_execute(i3, e):
                 'main': {'id': [], 'layout': 'splitv', 'children': []},
                 'scnd': {'id': [], 'layout': 'splitv', 'children': []},
                 }
-
-    # Get focused window.
-    tree = i3.get_tree()
-    focused = tree.find_focused()
-    workspace = focused.workspace()
-
     # Check if workspace should be handled.
-    key = workspace.name
     if key in DWM_IGNORE:
         return
 
@@ -355,31 +355,31 @@ def i3_dwm_reflect(i3):
     # Only reflect the workspace if the secondary container exist and for the
     # dwm standard mode.
     key = workspace.name
-    if DWM[key]['scnd'] and DWM[key]['mode'] == 'dwm':
+    scnd_mark = DWM_SCND_MARK.format(key)
+    scnd = i3.get_tree().find_marked(scnd_mark)
+    if scnd and DWM[key]['mode'] == 'dwm':
 
         # Change the split container.
-        i3.command('[con_id={}] layout toggle split'.format(DWM[key]['scnd']['id']))
+        scnd = scnd[0]
+        i3.command('[con_id={}] layout toggle split'.format(scnd.id))
 
         # Read the split container, that is, the first descendant of the
-        # workspace container. NOTE: This could be simplified.
+        # workspace container.
         tree = i3.get_tree()
         focused = tree.find_focused()
         workspace = focused.workspace()
 
         # Find the global split container.
         glbl = workspace.descendants()[0]
-        DWM[key]['glbl']['id'] = glbl.id
-        DWM[key]['glbl']['orientation'] = glbl.orientation
 
         # Update the layout of the secondary container.
-        scnd = tree.find_by_id(DWM[key]['scnd']['id'])
-        DWM[key]['scnd']['layout'] = scnd.layout
+        scnd = i3.get_tree().find_marked(scnd_mark)[0]
 
         if (scnd.layout == 'splitv' and glbl.orientation == 'vertical') or \
                 (scnd.layout == 'splith' and glbl.orientation == 'horizontal'):
-            i3.command('[con_id={}] layout toggle split'.format(DWM[key]['scnd']['children'][0]))
-            DWM[key]['scnd']['layout'] = \
-                    i3.get_tree().find_by_id(DWM[key]['scnd']['id']).layout
+            scnd_children = scnd.descendants()
+            i3.command('[con_id={}] layout toggle split'\
+                    .format(scnd_children[0].id))
 
     if DWM_DEBUG:
         print('DWM {}: {}'.format(key, DWM[key]))

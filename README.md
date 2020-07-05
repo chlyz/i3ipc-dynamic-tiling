@@ -36,8 +36,10 @@ Special effects:
 
 - [x] `Tabbed toggle`: The _tabbed_ mode is mimicking the _monocle_ mode of
   _dwm_ and _xmonad_ by the use of the _tabbed_ layout.
-- [x] `Reflect toggle`: The _secondary_ container can be put on the side of
+- [x] `Reflect toggle`: The _secondary_ container can be put on the side or
   underneath the _main_ container.
+- [ ] `Mirror toggle`: The _secondary_ container can be put on the left or
+  right (default) hand side of the _main_ container.
 
 ## Configuration
 
@@ -46,7 +48,11 @@ The configuration of _i3-dynamic-tiling_ is done in two ways:
 ### Environmental variables
 
   - `I3DT_WORKSPACE_IGNORE`: Workspaces to ignore, that is, use `i3` defaults
-  and do not apply dynamic tiling for these workspaces.
+    and do not apply dynamic tiling for these workspaces.
+
+  - `I3DT_WORKSPACE_ONLY`: Only apply dynamic tiling to these workspaces and
+    let `i3` defaults rule the others. This takes precedence over
+    `I3DT_WORKSPACE_IGNORE`.
 
 ### Configuration file
 
@@ -54,25 +60,26 @@ TODO: Add a minimal configuration file.
 
 ## Inspiration
 
-I am/was a heavy user of _dwm_ and _xmonad_ and I absolutely love those window
+I am/was a heavy user of _dwm_ and _xmonad_ and I absolutely love these window
 managers, but the user base is quite small compared to _i3_ and _sway_. This
-implies a lot of patch management or scripting in a not so simple language.
-Also, there are some programs that I require in my work that does not behave
-well with these window managers, like _Matlab_ in _xmonad_.
+implies a lot of manual patch management or scripting in a not so simple
+language. Also, there are some programs that I require in my work that does
+not behave well with these window managers, like _Matlab_ in _xmonad_.
 
 On the other hand, _i3_ and _sway_ has a relatively big user base and is under
 active development, which implies that most programs will either behave well or
-otherwise get fixed. Furthermore, with _wayland_ on the rise and no _dwm_ or
-_xmonad_ implementations known to me on the way.
+otherwise will get fixed. Furthermore, with _wayland_ on the rise and there is
+no, at least to my knowledge, _dwm_ or _xmonad_ implementations on the way.
 
-Unfortunately, the positions of the spawned windows in _i3_ and _sway_ needs to
-be done manually. This can be tedious and I rather like the dynamic tiling in
-other window managers like _dwm_, _xmonad_, or _qtile_ (there are many more).
+Unfortunately, the positioning of the spawned windows in _i3_ and _sway_ needs
+to be done manually. This can be tedious and I rather like the
+dynamic/automatic tiling in other window managers like _dwm_, _xmonad_, or
+_qtile_ (there are many more).
 
-But there is an excellent protocol to talk with _i3_ and _sway_ that can be
-used to force the behavior to mimic the dynamic tiling.
+Fortunately, there is an excellent protocol to talk with _i3_ and _sway_ that
+can be used to force the behavior of dynamic tiling.
 
-The code is written in python using the i3 IPC framework and _stealing_ ideas
+This code is written in python using the i3 IPC framework and _stealing_ ideas
 from [budlabs i3ass](https://github.com/budlabs/i3ass). I highly recommend the
 videos of [budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ)
 on my favourite youtube channel.
