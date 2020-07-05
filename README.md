@@ -1,9 +1,9 @@
 # i3-dynamic-tiling
 
 A Python IPC implementation of dynamic tiling for the i3 window manager, trying
-to mimic the tiling behavior of the excellent [dwm][http://dwm.suckless.org/]
-and [xmonad][https://xmonad.org/], while utilizing the strengths of
-[i3][https://i3wm.org/] and [sway][https://swaywm.org/].
+to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
+and [xmonad](https://xmonad.org/), while utilizing the strengths of
+[i3](https://i3wm.org/) and [sway](https://swaywm.org/).
 
 ## Features
 
@@ -55,7 +55,7 @@ _xmonad_ implementations known to me on the way, I think this is the direction
 to go for now.
 
 The code is written in python using the i3 IPC framework and _stealing_ ideas
-from @budlabs [i3ass][https://github.com/budlabs/i3ass]. I highly recommend the
+from @budlabs [i3ass](https://github.com/budlabs/i3ass). I highly recommend the
 videos of @budlabs on my favourite [youtube
-channel][https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ].
+channel](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ).
 
