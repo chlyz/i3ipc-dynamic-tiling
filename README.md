@@ -55,7 +55,7 @@ _xmonad_ implementations known to me on the way, I think this is the direction
 to go for now.
 
 The code is written in python using the i3 IPC framework and _stealing_ ideas
-from @budlabs [i3ass](https://github.com/budlabs/i3ass). I highly recommend the
-videos of @budlabs on my favourite [youtube
-channel](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ).
+from [budlabs i3ass](https://github.com/budlabs/i3ass). I highly recommend the
+videos of [budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ)
+on my favourite youtube channel.
 
