@@ -38,7 +38,7 @@ Special effects:
   _dwm_ and _xmonad_ by the use of the _tabbed_ layout.
 - [x] `Reflect toggle`: The _secondary_ container can be put on the side or
   underneath the _main_ container.
-- [ ] `Mirror toggle`: The _secondary_ container can be put on the left or
+- [x] `Mirror toggle`: The _secondary_ container can be put on the left or
   right (default) hand side of the _main_ container.
 
 ## Configuration
