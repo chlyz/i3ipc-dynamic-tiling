@@ -8,21 +8,12 @@ import time
 
 # Global variables.
 
-I3DT_DEBUG     = True
-I3DT_IGNORE    = ["1"]
-
+I3DT_DEBUG            = True
+I3DT_WORKSPACE_IGNORE = ["1"]
 I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK = 'I3DT_SCND_{}'
 
-# I3DT_TBBD_MARK = 'I3DT_TBBD_{}'
 I3DT = dict()
-I3DT_MODE = dict()
-I3DT_MAIN = dict()
-I3DT_SCND = dict()
-
-I3DT_MAIN_ID = dict()
-I3DT_SCND_ID = dict()
-
 I3DT_MAIN_LAYOUT = dict()
 I3DT_SCND_LAYOUT = dict()
 
@@ -32,7 +23,6 @@ current_window = []
 def i3dt_execute(i3, e):
 
     global I3DT
-
 
     # Get focused window.
     tree = i3.get_tree()
@@ -47,38 +37,47 @@ def i3dt_execute(i3, e):
                 'main': {'id': [], 'layout': 'splitv', 'children': []},
                 'scnd': {'id': [], 'layout': 'splitv', 'children': []},
                 }
+
     # Check if workspace should be handled.
-    if key in I3DT_IGNORE:
+    if key in I3DT_WORKSPACE_IGNORE:
         return
 
     # Initialize the I3DT dictionary.
     I3DT[key]['mode'] = 'i3dt'
 
+    # Find the main container.
+    main_mark = I3DT_MAIN_MARK.format(key)
+    main = workspace.find_marked(main_mark)
+    if main:
+        main = main[0]
+    else:
+        return
+
+    scnd_mark = I3DT_SCND_MARK.format(key)
+    scnd = tree.find_marked(scnd_mark)
+    if scnd:
+        scnd = scnd[0]
+
     # If focused is in the main container, then focus either the main container
-    # of the last child in the secondary container.
-    # main_mark = I3DT_MAIN_MARK.format(key)
-    # main = workspace.find_marked(main_mark)
-    # scnd = tree.find_marked(scnd_mark)
-    # scnd_mark = I3DT_SCND_MARK.format(key)
-    # if main:
-    #     main = main[0]
-    #     main_children = main.descendants()
-    #     main_ids = []
-    #     for c in
-
-    # if focused.id in I3DT[key]['main']['children']:
-    #     if I3DT[key]['scnd']['id']:
-    #         i3.command('[con_id={}] focus'\
-    #                 .format(I3DT[key]['scnd']['children'][-1]))
-    #     else:
-    #         i3.command('[con_id={}] focus'\
-    #                 .format(I3DT[key]['main']['id']))
-
-    # If focused is in the secondary container, then focus the last child in
-    # the secondary container.
-    # if focused.id in I3DT[key]['scnd']['children']:
-    #     i3.command('[con_id={}] focus'\
-    #             .format(I3DT[key]['scnd']['children'][-1]))
+    # or the last child in the secondary container.
+    main_children = main.descendants()
+    main_is_focused = False
+    for c in main_children:
+        if focused.id == c.id:
+            main_is_focused = True
+            break
+    if main_is_focused:
+        if scnd:
+            scnd_children = scnd.descendants()
+            i3.command('[con_id={}] focus'\
+                    .format(scnd_children[-1]))
+        else:
+            i3.command('[con_id={}] focus'\
+                    .format(main.id))
+    elif scnd:
+        scnd_children = scnd.descendants()
+        i3.command('[con_id={}] focus'\
+                .format(scnd_children[-1]))
 
 def i3dt_layout(i3, e):
 
@@ -145,7 +144,7 @@ def i3dt_tabbed_toggle_simple(i3):
 
     # Check if workspace should be handled.
     key = workspace.name
-    if key in I3DT_IGNORE:
+    if key in I3DT_WORKSPACE_IGNORE:
         return
 
     main_mark = I3DT_MAIN_MARK.format(key)
@@ -244,7 +243,7 @@ def i3dt_tabbed_toggle(i3):
 
     # Check if workspace should be handled.
     key = workspace.name
-    if key in I3DT_IGNORE:
+    if key in I3DT_WORKSPACE_IGNORE:
         return
 
     main_mark = I3DT_MAIN_MARK.format(key)
@@ -508,7 +507,7 @@ def on_workspace_focus(i3, e):
                 }
 
         # Exit if workspace is in the ignore list.
-        if key in I3DT_IGNORE:
+        if key in I3DT_WORKSPACE_IGNORE:
             if I3DT_DEBUG:
                 print('I3DT {}: {}'.format(key, I3DT[key]))
             return
@@ -648,7 +647,7 @@ def on_window_new(i3, e):
                 }
 
     # If workspace should be ignored set the mode to i3 and return.
-    if key in I3DT_IGNORE:
+    if key in I3DT_WORKSPACE_IGNORE:
         I3DT[key]['mode'] = 'i3'
         return
 
