@@ -539,53 +539,61 @@ def i3dt_kill(i3):
     tree = i3.get_tree()
     focused = tree.find_focused()
     workspace = focused.workspace()
-    ws_name = workspace.name
+
+    # If workspace is not handled by i3dt simply kill the window and exit.
+    key = workspace.name
+    if key in I3DT_WORKSPACE_IGNORE:
+        i3.command('[con_id={} kill'.format(focused.id))
+        return
+
+    # If there is no main container then exit.
+    main_mark = I3DT_MAIN_MARK.format(key)
+    main = tree.find_marked(main_mark)
+    if not main:
+        return
 
     # Check if focused window is in the main container.
-    key = workspace.name
-    is_in_main = focused.id in I3DT[key]['main']['children']
+    is_main = False
+    main = main[0]
+    main_children = main.descendants()
+    for c in main_children:
+        if c.id == focused.id:
+            is_main = True
+            break
 
-    if not is_in_main \
-            or (is_in_main and len(I3DT[key]['main']['children']) > 1):
-        # Not in main container or there are several windows in the main
-        # container. Thus, it is safe to kill the focused window.
-        i3.command('[con_id={}] kill'.format(focused.id))
-        if focused.id in I3DT[key]['main']['children']:
-            I3DT[key]['main']['children'].remove(focused.id)
-            if not I3DT[key]['main']['children']:
-                I3DT[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
-        if focused.id in I3DT[key]['scnd']['children']:
-            I3DT[key]['scnd']['children'].remove(focused.id)
-            if not I3DT[key]['scnd']['children']:
-                I3DT[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
+    # If the focused window is not in the main container or there are several
+    # windows in the main container the it is safe to kill the focused window.
+    command = []
+    if not is_main or (is_main and len(main_children) > 1):
+        command.append('[con_id={}] kill'.format(focused.id))
     else:
-        # The focused window is the only window in the main container. If
-        # there is a secondary container, swap the focused window with the
-        # first window in the second container and then kill the, now
-        # moved, focused window. Otherwise just kill the focused window.
-        if I3DT[key]['scnd']['children']:
+        # The focused window is the only window in the main container. If there
+        # is a secondary container then swap the focused window with the first
+        # window in the second container and then kill the, now moved, focused
+        # window. Otherwise just kill the focused window.
+        scnd_mark = I3DT_SCND_MARK.format(key)
+        scnd = tree.find_marked(scnd_mark)
+        if scnd:
             # Get and remove the first element in the secondary container. If
             # empty reset the container.
-            scnd_id = I3DT[key]['scnd']['children'].pop(0)
-            if not I3DT[key]['scnd']['children']:
-                I3DT[key]['scnd'] = {'id': [], 'layout': 'splitv', 'children':[]}
+            scnd = scnd[0]
+            scnd_children = scnd.descendants()
 
             # Swap the containers.
-            i3.command('[con_id={}] swap container with con_id {}'\
-                    .format(focused.id, scnd_id))
-            i3.command('[con_id={}] focus'.format(scnd_id))
-
-            # Append the window to the main container.
-            I3DT[key]['main']['children'].append(scnd_id)
+            command.append('[con_id={}] swap container with con_id {}'\
+                    .format(focused.id, scnd_children[0].id))
+            command.append('[con_id={}] focus'\
+                    .format(scnd_children[0].id))
 
         # Kill the window.
-        i3.command('[con_id={}] kill'.format(focused.id))
-        I3DT[key]['main']['children'].remove(focused.id)
-        if not I3DT[key]['main']['children']:
-            I3DT[key]['main'] = {'id': [], 'layout': 'splitv', 'children':[]}
-            I3DT[key]['glbl'] = {'id': [], 'orientation': 'horizontal'}
-            I3DT[key]['mode'] = 'i3dt'
+        command.append('[con_id={}] kill'\
+                .format(focused.id))
 
+    # Execute command.
+    if command:
+        i3.command(', '.join(command))
+
+    # Print debug info.
     if I3DT_DEBUG:
         print('I3DT {}: {}'.format(key, I3DT[key]))
 
