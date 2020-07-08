@@ -8,10 +8,12 @@ import time
 
 # Global variables.
 
-I3DT_DEBUG            = False
+I3DT_DEBUG            = True
 I3DT_WORKSPACE_IGNORE = ["1", "4"]
+I3DT_GLBL_MARK        = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK        = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK        = 'I3DT_SCND_{}'
+I3DT_TBBD_MARK        = 'I3DT_SCND_{}_TBBD_'
 
 I3DT = dict()
 I3DT_MAIN_LAYOUT = dict()
@@ -178,16 +180,28 @@ def i3dt_execute(i3, e):
 
     if main_is_focused:
         if scnd:
-            i3.command('[con_id={}] focus'\
-                    .format(scnd.focus[-1]))
+            print(scnd)
+            print(isinstance(scnd.focus, list))
+            print(len(scnd.focus))
+            if scnd.focus:
+                i3.command('[con_id={}] focus'\
+                        .format(scnd.focus[-1]))
+            else:
+                scnd_children = scnd.descendants()
+                print(isinstance(scnd_children, list))
+                print(len(scnd_children))
+                if scnd_children :
+                    i3.command('[con_id={}] focus'\
+                            .format(scnd_children[0].id))
 
         else:
             i3.command('[con_id={}] focus'\
                     .format(main.id))
     else:
-        scnd_children = scnd.descendants()
-        i3.command('[con_id={}] focus'\
-                .format(scnd_children[-1]))
+        if scnd:
+            scnd_children = scnd.descendants()
+            i3.command('[con_id={}] focus'\
+                    .format(scnd_children[-1]))
 
 def i3dt_create_container(i3, window, workspace, mark):
 
@@ -238,7 +252,6 @@ def i3dt_tabbed_simple_toggle(i3):
 
     main_mark = I3DT_MAIN_MARK.format(key)
     scnd_mark = I3DT_SCND_MARK.format(key)
-    tbbd_mark = scnd_mark + "_TABBED_"
 
     main = tree.find_marked(main_mark)
 
@@ -336,13 +349,14 @@ def i3dt_tabbed_toggle(i3):
 
     main_mark = I3DT_MAIN_MARK.format(key)
     scnd_mark = I3DT_SCND_MARK.format(key)
-    tbbd_mark = scnd_mark + "_TABBED_"
+    tbbd_mark = I3DT_TBBD_MARK.format(key)
 
     main = tree.find_marked(main_mark)
 
     if I3DT[key]['mode'] == 'i3dt':
 
         # Main container.
+        main_focused_id = []
         if main:
             main = main[0]
 
@@ -356,44 +370,65 @@ def i3dt_tabbed_toggle(i3):
             # Store the focused container id.
             main_focused_id = main.focus[0]
 
-        # Secondary container.
-        scnd = tree.find_marked(scnd_mark)
-        if scnd:
-            scnd = scnd[0]
+            # Secondary container.
+            scnd = tree.find_marked(scnd_mark)
+            if scnd:
+                scnd = scnd[0]
 
-            # Store the layout of the secondary container.
+                # Store the layout of the secondary container.
+                I3DT_SCND_LAYOUT[key] = scnd.layout
 
-            I3DT_SCND_LAYOUT[key] = scnd.layout
+                # Make the secondary container tabbed.
+                scnd_children = scnd.descendants()
+                if not scnd.layout == 'tabbed':
+                    command.append('[con_id={}] layout tabbed'\
+                            .format(scnd_children[0].id))
 
-            # Make the secondary container tabbed.
-            scnd_children = scnd.descendants()
-            if not scnd.layout == 'tabbed':
-                command.append('[con_id={}] layout tabbed'\
-                        .format(scnd_children[0].id))
+                # Focus last main window.
+                command.append('[con_id={}] focus'\
+                        .format(main_children[-1].id))
 
-            # Focus last main window.
+                # Mark all windows in the secondary container.
+                for i, c in enumerate(scnd_children):
+                    command.append('[con_id={}] mark {}'\
+                            .format(c.id, tbbd_mark + str(i)))
+
+                # Move as few windows as possible.
+                if len(scnd_children) > len(main_children):
+                    # Move all main windows to the second container and rename
+                    # the container.
+                    scnd_focused = scnd.focus[0]
+                    command.append('[con_id={}] focus'\
+                            .format(scnd_children[0].id))
+                    for c in main_children:
+                        command.append('[con_id={}] move to mark {}, move left'\
+                                .format(c.id, scnd_mark))
+                    command.append('[con_id={}] unmark {}'\
+                            .format(scnd.id, scnd_mark))
+                    command.append('[con_id={}] mark {}'\
+                            .format(scnd.id, main_mark))
+
+                else:
+                    # Move all secondary windows to the main container. This is
+                    # done in reverse due to the fact that i3 always puts the
+                    # windows after the focused container, and thus implicitly
+                    # reversing the order.
+                    move_commands = []
+                    for i, c in enumerate(scnd_children):
+                        move_commands.append('[con_id={}] move to mark {}'\
+                                .format(c.id, main_mark))
+                    move_commands.reverse()
+                    command.extend(move_commands)
+
+            # Focus the window in focus before this script.
+            if main_focused_id:
+                command.append('[con_id={}] focus'\
+                        .format(main_focused_id))
             command.append('[con_id={}] focus'\
-                    .format(main_children[-1].id))
+                    .format(focused.id))
 
-            # Find all windows in the secondary container, then mark and move
-            # them. This is done in reverse due to the fact that i3 always puts
-            # the windows after the focused container, and thus implicitly
-            # reversing the order.
-            move_commands = []
-            for i, c in enumerate(scnd_children):
-                move_commands.append('[con_id={}] mark {}, move to mark {}'\
-                        .format(c.id, tbbd_mark + str(i), main_mark))
-            move_commands.reverse()
-            command.extend(move_commands)
-
-        # Focus the window in focus before this script.
-        command.append('[con_id={}] focus'\
-                .format(main_focused_id))
-        command.append('[con_id={}] focus'\
-                .format(focused.id))
-
-        # Set tabbed mode enabled.
-        I3DT[key]['mode'] = 'tabbed'
+            # Set tabbed mode enabled.
+            I3DT[key]['mode'] = 'tabbed'
 
     elif I3DT[key]['mode'] == 'tabbed':
 
@@ -404,34 +439,112 @@ def i3dt_tabbed_toggle(i3):
         if not main:
             return
 
-        # Find all marked windows in the main container, then move and unmark
-        # them.
+        # Find all windows that should be in the main and the secondary
+        # container, respectively.
         main = main[0]
-        main_children = main.descendants()
-        scnd = []
-        for c in main_children:
+        main_children = []
+        scnd_children = []
+        for c in main.descendants():
+            in_scnd = False
             for m in c.marks:
                 if m.startswith(tbbd_mark):
-                    # Remove the mark.
-                    command.append('[con_id={}] unmark {}'.format(c.id, m))
-
-                    # Create the secondary container and move the window.
-                    if scnd:
-                        command.append('[con_id={}] move to mark {}'\
-                                .format(c.id, scnd_mark))
-                    else:
-                        command.append('[con_id={}] focus'\
-                                .format(main.id))
-                        i3.command(', '.join(command))
-                        command = []
-                        i3dt_create_container(i3, c, workspace, scnd_mark)
-                        scnd = i3.get_tree().find_marked(scnd_mark)
-                        if not key in I3DT_SCND_LAYOUT:
-                            I3DT_SCND_LAYOUT[key] = 'splitv'
-                        command.append('[con_id={}] layout {}'\
-                                 .format(c.id, I3DT_SCND_LAYOUT[key]))
-
+                    in_scnd = True
+                    command.append('[con_id={}] unmark {}'\
+                            .format(c.id, m))
                     break
+
+            if in_scnd:
+                scnd_children.append(c)
+            else:
+                main_children.append(c)
+
+        # Move as few windows as possible.
+        if len(scnd_children) > len(main_children):
+            # Create a temporary container for the main winodws.
+            main_temp_mark = 'I3DT_MAIN_TEMP'
+            main_temp = []
+            for c in main_children:
+                if main_temp:
+                    command.append('[con_id={}] move to mark {}'\
+                            .format(c.id, main_temp_mark))
+                else:
+                    command.append('[con_id={}] focus'\
+                            .format(main.id))
+                    i3.command(', '.join(command))
+                    command = []
+                    i3dt_create_container(i3, c, workspace, main_temp_mark)
+                    main_temp = i3.get_tree().find_marked(main_temp_mark)
+                    if not key in I3DT_MAIN_LAYOUT:
+                        I3DT_MAIN_LAYOUT[key] = 'splitv'
+                    command.append('[con_id={}] layout {}'\
+                             .format(c.id, I3DT_MAIN_LAYOUT[key]))
+
+            # Swap the main and the secondary containers.
+            scnd = main
+            command.append('[con_id={}] unmark {}'\
+                        .format(scnd.id, main_mark))
+            command.append('[con_id={}] mark {}'\
+                        .format(scnd.id, scnd_mark))
+            if not key in I3DT_SCND_LAYOUT:
+                I3DT_SCND_LAYOUT[key] = 'splitv'
+            command.append('[con_id={}] layout {}'\
+                     .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
+            main = main_temp[0]
+            command.append('[con_id={}] unmark {}'\
+                        .format(main.id, main_temp_mark))
+            command.append('[con_id={}] mark {}'\
+                        .format(main.id, main_mark))
+            i3.command('[con_id={}] swap container with con_id {}'\
+                    .format(main.id, scnd.id))
+
+        else:
+            # Create the secondary container and move the window.
+            scnd = []
+            for c in scnd_children:
+                if scnd:
+                    command.append('[con_id={}] move to mark {}'\
+                            .format(c.id, scnd_mark))
+                else:
+                    command.append('[con_id={}] focus'\
+                            .format(main.id))
+                    i3.command(', '.join(command))
+                    command = []
+                    i3dt_create_container(i3, c, workspace, scnd_mark)
+                    scnd = i3.get_tree().find_marked(scnd_mark)
+                    if not key in I3DT_SCND_LAYOUT:
+                        I3DT_SCND_LAYOUT[key] = 'splitv'
+                    command.append('[con_id={}] layout {}'\
+                             .format(c.id, I3DT_SCND_LAYOUT[key]))
+
+        # Find all marked windows in the main container, then move and unmark
+        # them.
+        # main = main[0]
+        # main_children = main.descendants()
+        # scnd = []
+        # scnd = []
+        # for c in main_children:
+        #     for m in c.marks:
+        #         if m.startswith(tbbd_mark):
+        #             # Remove the mark.
+        #             command.append('[con_id={}] unmark {}'.format(c.id, m))
+
+        #             # Create the secondary container and move the window.
+        #             if scnd:
+        #                 command.append('[con_id={}] move to mark {}'\
+        #                         .format(c.id, scnd_mark))
+        #             else:
+        #                 command.append('[con_id={}] focus'\
+        #                         .format(main.id))
+        #                 i3.command(', '.join(command))
+        #                 command = []
+        #                 i3dt_create_container(i3, c, workspace, scnd_mark)
+        #                 scnd = i3.get_tree().find_marked(scnd_mark)
+        #                 if not key in I3DT_SCND_LAYOUT:
+        #                     I3DT_SCND_LAYOUT[key] = 'splitv'
+        #                 command.append('[con_id={}] layout {}'\
+        #                          .format(c.id, I3DT_SCND_LAYOUT[key]))
+
+        #             break
 
         # Restore the main layout.
         if not key in I3DT_MAIN_LAYOUT:
@@ -508,16 +621,18 @@ def i3dt_reflect(i3):
 
         # Read the split container, that is, the first descendant of the
         # workspace container.
-        tree = i3.get_tree()
-        focused = tree.find_focused()
-        workspace = focused.workspace()
-
-        # Find the global split container.
-        glbl = workspace.descendants()[0]
+        workspace = i3.get_tree().find_focused().workspace()
+        glbl_mark = I3DT_GLBL_MARK.format(key)
+        glbl = workspace.find_marked(glbl_mark)
+        if not glbl:
+            glbl = workspace.descendants()[0]
+            i3.command('[con_id={}] mark {}'\
+                    .format(glbl.id, glbl_mark))
+        else:
+            glbl = glbl[0]
 
         # Update the layout of the secondary container.
-        scnd = i3.get_tree().find_marked(scnd_mark)[0]
-
+        scnd = workspace.find_marked(scnd_mark)[0]
         if (scnd.layout == 'splitv' and glbl.orientation == 'vertical') or \
                 (scnd.layout == 'splith' and glbl.orientation == 'horizontal'):
             scnd_children = scnd.descendants()
@@ -532,52 +647,54 @@ def i3dt_kill(i3):
 
     global I3DT
 
+    # Print debug info.
     if I3DT_DEBUG:
         print('\nWindow::Kill')
         print('============')
 
-    tree = i3.get_tree()
-    focused = tree.find_focused()
+    # Get workspace information.
+    focused = i3.get_tree().find_focused()
     workspace = focused.workspace()
 
-    # If workspace is not handled by i3dt simply kill the window and exit.
+    # If workspace is handled by i3 simply kill the window and exit.
     key = workspace.name
     if key in I3DT_WORKSPACE_IGNORE:
-        i3.command('[con_id={} kill'.format(focused.id))
+        i3.command('kill')
         return
 
-    # If there is no main container then exit.
+    # If there is no main container then simply send kill the window and exit.
     main_mark = I3DT_MAIN_MARK.format(key)
-    main = tree.find_marked(main_mark)
+    main = workspace.find_marked(main_mark)
     if not main:
+        i3.command('kill')
         return
+    else:
+        main = main[0]
 
     # Check if focused window is in the main container.
-    is_main = False
-    main = main[0]
+    main_focused = False
     main_children = main.descendants()
     for c in main_children:
         if c.id == focused.id:
-            is_main = True
+            main_focused = True
             break
 
     # If the focused window is not in the main container or there are several
-    # windows in the main container the it is safe to kill the focused window.
+    # windows in the main container then it is safe to kill the focused window.
     command = []
-    if not is_main or (is_main and len(main_children) > 1):
-        command.append('[con_id={}] kill'.format(focused.id))
+    if not main_focused or (main_focused and len(main_children) > 1):
+        i3.command('kill')
     else:
         # The focused window is the only window in the main container. If there
         # is a secondary container then swap the focused window with the first
         # window in the second container and then kill the, now moved, focused
         # window. Otherwise just kill the focused window.
         scnd_mark = I3DT_SCND_MARK.format(key)
-        scnd = tree.find_marked(scnd_mark)
+        scnd = workspace.find_marked(scnd_mark)
         if scnd:
             # Get and remove the first element in the secondary container. If
             # empty reset the container.
-            scnd = scnd[0]
-            scnd_children = scnd.descendants()
+            scnd_children = scnd[0].descendants()
 
             # Swap the containers.
             command.append('[con_id={}] swap container with con_id {}'\
@@ -585,7 +702,7 @@ def i3dt_kill(i3):
             command.append('[con_id={}] focus'\
                     .format(scnd_children[0].id))
 
-        # Kill the window.
+        # Kill the focused window.
         command.append('[con_id={}] kill'\
                 .format(focused.id))
 
@@ -638,7 +755,7 @@ def on_workspace_focus(i3, e):
         # Check the container marks for the main and secondary container.
         main_mark = I3DT_MAIN_MARK.format(e.current.name)
         scnd_mark = I3DT_SCND_MARK.format(e.current.name)
-        tbbd_mark = scnd_mark +  "_TABBED_"
+        tbbd_mark = I3DT_TBBD_MARK.format(e.current.name)
         for c in containers:
             for m in c.marks:
                 if m == main_mark:
@@ -707,14 +824,6 @@ def on_window_new(i3, e):
 
     global I3DT
 
-    # Commmand chain array.
-    command = []
-
-    # Print debug info.
-    if I3DT_DEBUG:
-        print('\nWindow::New')
-        print('===========')
-
     # Get the basic i3 state information.
     tree = i3.get_tree()
     window = tree.find_focused()
@@ -735,28 +844,98 @@ def on_window_new(i3, e):
         I3DT[key]['mode'] = 'i3'
         return
 
-    # Workspace is handled by I3DT. Create the main and the secondary containers
-    # dynamically as needed.
+    # Print debug info.
+    if I3DT_DEBUG:
+        print('\nWindow::New')
+        print('===========')
+
+    # Find the application windows on the focused workspace.
+    wrks_children = []
+    for c in workspace.descendants():
+        if not c.name == None:
+            wrks_children.append(c.id)
+
+    # Exit if the the number of application windows are too low.
+    if len(wrks_children) < 2:
+        return
+
+    # Parse the main container.
     main_mark = I3DT_MAIN_MARK.format(workspace.name)
     main = workspace.find_marked(main_mark)
+
+    # Parse the secondary container.
+    scnd_mark = I3DT_SCND_MARK.format(workspace.name)
+    scnd = workspace.find_marked(scnd_mark)
+
+    # Create the main container.
+    command = []
     if not main:
-        i3dt_create_container(i3, window, workspace, main_mark)
-    else:
-        scnd_mark = I3DT_SCND_MARK.format(workspace.name)
-        scnd  = workspace.find_marked(scnd_mark)
+        i3.command('[con_id={}] focus, splitv'.format(wrks_children[0]))
+        workspace = i3.get_tree().find_focused().workspace()
+        main_container = []
+        for c in workspace.descendants():
+            for d in c.descendants():
+                if d.id == wrks_children[0]:
+                    main_container = c.id
+                    break
+            if main_container:
+                break
+        i3.command('[con_id={}] mark {}'.format(main_container, main_mark))
+
+        # Create the secondary container.
         if not scnd:
-            i3.command('[con_id={}] focus'.format(main[0].id))
-            i3dt_create_container(i3, window, workspace, scnd_mark)
+            i3.command('[con_id={}] focus, splitv'.format(wrks_children[1]))
+            workspace = i3.get_tree().find_focused().workspace()
+            scnd_container = []
+            for c in workspace.descendants():
+                for d in c.descendants():
+                    if d.id == wrks_children[1]:
+                        scnd_container = c.id
+                        break
+                if scnd_container:
+                    break
+            i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+    else:
+        # Create the secondary container.
+        if not scnd:
+            i3.command('[con_id={}] move right, splitv'.format(window.id))
+            workspace = i3.get_tree().find_focused().workspace()
+            scnd_container = []
+            for c in workspace.descendants():
+                for d in c.descendants():
+                    if d.id == window.id:
+                        scnd_container = c.id
+                        break
+                if scnd_container:
+                    break
+            i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+
+            # Make sure that the secondary container is on the same level as
+            # the main container.
+            workspace = i3.get_tree().find_focused().workspace()
+            scnd = workspace.find_marked(scnd_mark)
+            glbl_mark = I3DT_GLBL_MARK.format(workspace.name)
+            glbl = workspace.find_marked(glbl_mark)
+            scnd = workspace.find_marked(scnd_mark)
+            if glbl:
+                i3.command('[con_id={}] move to mark {}'\
+                        .format(scnd[0].id, glbl_mark))
+            else:
+                containers = workspace.descendants()
+                if not containers[0].id == main[0].id and containers[1].id == scnd[0].id:
+                    i3.command('[con_id={}] mark {}'\
+                            .format(containers[0].id, glbl_mark))
+                    i3.command('[con_id={}] move to mark {}'\
+                            .format(scnd[0].id, glbl_mark))
         else:
-            command.append('[con_id={}] move to mark {}'\
-                    .format(window.id, scnd_mark))
+            # If window spawned in the main constainer move it to the secondary
+            # container.
+            for c in main[0].descendants():
+                if c.id == window.id:
+                    i3.command('[con_id={}] move to mark {}'\
+                            .format(window.id, scnd_mark))
+                    break
 
-    # Focus the current window.
-    command.append('[con_id={}] focus'.format(window.id))
-
-    # Execute the command chain.
-    if command:
-        i3.command(', '.join(command))
 
     # Print debug info.
     if I3DT_DEBUG:
