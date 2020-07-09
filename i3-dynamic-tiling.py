@@ -32,16 +32,18 @@ logging.basicConfig(
         format='%(asctime)s %(levelname)s: %(message)s',
         level=logging.DEBUG)
 
-def execute_commands(commands):
+def execute_commands(commands, preamble='Executing:'):
     # Execute all commands
     if commands:
         if isinstance(commands, list):
-            logging.debug('\tExecuting:')
+            if preamble:
+                logging.debug('\t' + preamble)
             i3.command(', '.join(commands))
             for c in commands:
                 logging.debug('\t+ Command: {}'.format(c))
         else:
-            logging.debug('\tExecuting:')
+            if preamble:
+                logging.debug('\t' + preamble)
             i3.command(commands)
             logging.debug('\t+ Command: {}'.format(commands))
     return []
@@ -100,6 +102,9 @@ def i3dt_focus(i3, e):
 
 
 def i3dt_move(i3, e):
+
+    logging.info('Window::Focus::{}'\
+            .format(e.binding.command.replace('nop ', '', 1)))
 
     # Get focused window.
     tree = i3.get_tree()
@@ -791,7 +796,8 @@ def on_workspace_focus(i3, e):
     global I3DT
 
     # Logging event.
-    logging.info('Workspace::Focus')
+    logging.info('Workspace::Focus::{}'\
+            .format(e.current.name))
 
     key = e.current.name
     glbl_mark = I3DT_GLBL_MARK.format(key)
@@ -826,6 +832,9 @@ def on_workspace_focus(i3, e):
                 I3DT[key]['mode'] = 'tabbed'
                 break
 
+    # Exit if workspace is in the ignore list.
+    if key in I3DT_WORKSPACE_IGNORE:
+        return
 
     # Create an I3DT session.
     if I3DT[key]['mode'] == 'i3':
@@ -841,7 +850,7 @@ def on_workspace_focus(i3, e):
         # Create the main container.
         windows = workspace.leaves()
         window = windows.pop(0)
-        execute_commands('[con_id={}] focus, splitv'.format(window.id))
+        execute_commands('[con_id={}] focus, splitv'.format(window.id), 'Create main container:')
         workspace = i3.get_tree().find_focused().workspace()
         main_container = []
         for c in workspace.descendants():
@@ -852,11 +861,11 @@ def on_workspace_focus(i3, e):
             if main_container:
                 break
         execute_commands('[con_id={}] mark {}'\
-                .format(main_container.id, main_mark))
+                .format(main_container.id, main_mark), '')
 
         # Create the secondary container.
         window = windows.pop(0)
-        execute_commands('[con_id={}] focus, splitv'.format(window.id))
+        execute_commands('[con_id={}] focus, splitv'.format(window.id), 'Create secondary container:')
         workspace = i3.get_tree().find_focused().workspace()
         scnd_container = []
         for c in workspace.descendants():
@@ -872,7 +881,7 @@ def on_workspace_focus(i3, e):
         for c in windows:
             command.append('[con_id={}] move to mark {}'\
                     .format(c.id, scnd_mark))
-        execute_commands(command)
+        execute_commands(command, '')
 
     else:
         # Find unmanaged windows.
