@@ -635,7 +635,6 @@ def i3dt_tabbed_toggle(i3):
                 i3.command('move to mark{}'\
                         .format(main_container.id))
 
-
             # Mark the main container.
             main = main_container
             command.append('[con_id={}] mark {}'\
@@ -664,27 +663,34 @@ def i3dt_tabbed_toggle(i3):
             if glbl:
                 i3.command('[con_id={}] move right'\
                         .format(main.id))
-            # scnd_last_child = scnd_children.pop(-1)
-            # if not key in I3DT_SCND_LAYOUT:
-            #     I3DT_SCND_LAYOUT[key] = 'splitv'
-            # i3.command('[con_id={}] focus, move right, splitv, layout {}'\
-            #         .format(scnd_last_child.id, I3DT_SCND_LAYOUT[key]))
-            # scnd = i3.get_tree().find_by_id(workspace.id).descendants()[1] # Needs to be generalized.
+            scnd_last_child = scnd_children.pop(-1)
+            if not key in I3DT_SCND_LAYOUT:
+                I3DT_SCND_LAYOUT[key] = 'splitv'
+            i3.command('[con_id={}] focus, move right, splitv, layout {}'\
+                    .format(scnd_last_child.id, I3DT_SCND_LAYOUT[key]))
 
-            # # Mark the scnd container.
-            # command.append('[con_id={}] mark {}'\
-            #             .format(scnd.id, scnd_mark))
+            # Find the temporary split container.
+            scnd = i3.get_tree().find_by_id(workspace.id).descendants()[1] # Needs to be generalized.
 
-            # # Move the remaining children to the scnd container.
-            # for c in scnd_children:
-            #     command.append('[con_id={}] move to mark {}'\
-            #             .format(c.id, scnd_mark))
+            # Move the new split container into the global container.
+            if glbl:
+                i3.command('move to mark{}'\
+                        .format(main_container.id))
 
-            # # Apply the stored layout to the main container.
-            # if not key in I3DT_MAIN_LAYOUT:
-            #     I3DT_MAIN_LAYOUT[key] = 'splitv'
-            # command.append('[con_id={}] layout {}'\
-            #          .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
+            # Mark the scnd container.
+            command.append('[con_id={}] mark {}'\
+                        .format(scnd.id, scnd_mark))
+
+            # Move the remaining children to the scnd container.
+            for c in scnd_children:
+                command.append('[con_id={}] move to mark {}'\
+                        .format(c.id, scnd_mark))
+
+            # Apply the stored layout to the main container.
+            if not key in I3DT_MAIN_LAYOUT:
+                I3DT_MAIN_LAYOUT[key] = 'splitv'
+            command.append('[con_id={}] layout {}'\
+                     .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
 
         # Focus the right container.
         command.append('[con_id={}] focus'\
