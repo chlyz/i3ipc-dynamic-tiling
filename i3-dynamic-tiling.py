@@ -5,6 +5,7 @@ import i3ipc
 from i3ipc import Event
 import os
 import time
+import logging
 
 # Global variables.
 
@@ -24,7 +25,34 @@ SCRATCHPAD_NAME = '__i3_scratch'
 previous_window = []
 current_window = []
 
+# Enable logging
+logging.basicConfig(
+        # filename='/tmp/example.log',
+        # filemode='w',
+        format='%(asctime)s %(levelname)s: %(message)s',
+        # datefmt='%Y-%m-%d %I:%M:%S',
+        level=logging.DEBUG)
+
+def execute_commands(commands):
+
+    # Execute all commands
+    if commands:
+        if isinstance(commands, list):
+            i3.command(', '.join(commands))
+            for c in commands:
+                logging.debug('\t+ Command: {}'.format(c))
+        else:
+            i3.command(commands)
+            logging.debug('\t+ Command: {}'.format(commands))
+
+    return []
+
+
 def i3dt_focus(i3, e):
+
+    # Logging event.
+    logging.info('Window::Focus::{}'\
+            .format(e.binding.command.replace('nop ', '', 1)))
 
     # Get focused window.
     tree = i3.get_tree()
@@ -45,12 +73,11 @@ def i3dt_focus(i3, e):
         index = 0;
         focused_index = []
         windows = []
-        for c in workspace.descendants():
-            if not c.name == None:
-                windows.append(c.id)
-                if c.id == focused.id:
-                    focused_index = index
-                index += 1
+        for c in workspace.leaves():
+            windows.append(c.id)
+            if c.id == focused.id:
+                focused_index = index
+            index += 1
 
         if action == 'next':
             command.append('[con_id={}] focus'\
@@ -69,8 +96,8 @@ def i3dt_focus(i3, e):
             if is_fullscreen_mode:
                 command.append('fullscreen toggle')
 
-    if command:
-        i3.command(', '.join(command))
+    # Execute all commands.
+    execute_commands(command)
 
 
 def i3dt_move(i3, e):
@@ -114,10 +141,11 @@ def i3dt_move(i3, e):
                         .format( scnd_focused))
             else:
                 if not scnd:
-                    i3.command('[con_id={}] focus'\
+                    command.append('[con_id={}] focus'\
                             .format(main[0].id))
+                    command = execute_commands(command)
                     i3dt_create_container(i3, focused, workspace, scnd_mark)
-                    i3.command('[con_id={}] focus'\
+                    command.append('[con_id={}] focus'\
                             .format(focused.id))
                 else:
                     scnd_focused = scnd[0].focus[0]
@@ -142,13 +170,16 @@ def i3dt_move(i3, e):
             command.append('[con_id={}] focus'\
                     .format(focused.id))
 
-    if command:
-        i3.command(', '.join(command))
+    # Execute all commands.
+    execute_commands(command)
 
 
 def i3dt_execute(i3, e):
 
     global I3DT
+
+    logging.info('Binding::Execute')
+    command = []
 
     # Get focused window.
     tree = i3.get_tree()
@@ -195,45 +226,44 @@ def i3dt_execute(i3, e):
 
     if main_is_focused:
         if scnd:
-            print(scnd)
-            print(isinstance(scnd.focus, list))
-            print(len(scnd.focus))
             if scnd.focus:
-                i3.command('[con_id={}] focus'\
+                command.append('[con_id={}] focus'\
                         .format(scnd.focus[-1]))
             else:
                 scnd_children = scnd.descendants()
-                print(isinstance(scnd_children, list))
-                print(len(scnd_children))
                 if scnd_children :
-                    i3.command('[con_id={}] focus'\
+                    command.append('[con_id={}] focus'\
                             .format(scnd_children[0].id))
 
         else:
-            i3.command('[con_id={}] focus'\
+            command.append('[con_id={}] focus'\
                     .format(main.id))
     else:
         if scnd:
             scnd_children = scnd.descendants()
-            i3.command('[con_id={}] focus'\
-                    .format(scnd_children[-1]))
+            command.append('[con_id={}] focus'\
+                    .format(scnd_children[-1].id))
+
+    execute_commands(command)
 
 def i3dt_create_container(i3, window, workspace, mark):
 
     global I3DT
 
+    logging.info('Container::New')
+
     # Create a temporary container.
-    i3.command('open, mark I3DT_TEMP, split v, layout splitv')
+    execute_commands('open, mark I3DT_TEMP, split v, layout splitv')
 
     # Move the window to the temporary container.
-    i3.command('[con_id={}] floating disable, move to mark I3DT_TEMP'.format(window.id))
+    execute_commands('[con_id={}] floating disable, move to mark I3DT_TEMP'.format(window.id))
 
     # Create the parent container.
-    i3.command('[con_mark=I3DT_TEMP] focus, focus parent')
-    i3.command('mark {}'.format(mark))
+    execute_commands('[con_mark=I3DT_TEMP] focus, focus parent')
+    execute_commands('mark {}'.format(mark))
 
     # Kill the temporary container.
-    i3.command('[con_mark=I3DT_TEMP] kill')
+    execute_commands('[con_mark=I3DT_TEMP] kill')
 
 def i3dt_check_window_in_container(window, container):
     is_in_container = False
@@ -252,10 +282,8 @@ def i3dt_check_window_in_container(window, container):
 def i3dt_tabbed_simple_toggle(i3):
     global I3DT
 
-    if I3DT_DEBUG:
-        print('\nWorkspace::Simple Tabbed')
-        print('=================')
-        t0 = time.time()
+    logging.info('Workspace::Simple Tabbed')
+    t0 = time.time()
 
     # Commmand chain array.
     command = []
@@ -404,9 +432,7 @@ def i3dt_tabbed_toggle(i3):
     global I3DT_MAIN_LAYOUT
     global I3DT_SCND_LAYOUT
 
-    if I3DT_DEBUG:
-        print('\nWorkspace::Tabbed')
-        print('=================')
+    logging.info('Workspace::Tabbed')
 
     # Commmand chain array.
     command = []
@@ -517,14 +543,6 @@ def i3dt_tabbed_toggle(i3):
                 if not scnd.layout == 'tabbed':
                     command.append('layout tabbed')
 
-        if I3DT_DEBUG:
-            i3.command(', '.join(command))
-            command = []
-            t1 = time.time()
-            print('----')
-            print('Tabbing Time: {}'.format(t1 - t0))
-            print('----')
-
     elif I3DT[key]['mode'] == 'tabbed':
 
         # Set tabbed mode disabled.
@@ -598,14 +616,6 @@ def i3dt_tabbed_toggle(i3):
             command.append('[con_id={}] layout {}'\
                      .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
 
-
-            i3.command(', '.join(command))
-            command = []
-            t1 = time.time()
-            print('----')
-            print('Untabbing Time: {}'.format(t1 - t0))
-            print('----')
-
         else:
             # Create a temporary split container for the last window with the
             # purpose to be the new scnd container.
@@ -637,9 +647,7 @@ def i3dt_tabbed_toggle(i3):
                 .format(focused.id))
 
     # Execute the command chain.
-    if command:
-        i3.command(', '.join(command))
-        command = []
+    execute_commands(command)
 
     return command
 
@@ -653,13 +661,11 @@ def i3dt_mirror(i3):
 
     global I3DT
 
+    logging.info('Workspace::Mirror')
+
     tree = i3.get_tree()
     focused = tree.find_focused()
     workspace = focused.workspace()
-
-    if I3DT_DEBUG:
-        print('\nWorkspace::Mirror')
-        print('=================')
 
     # Only reflect the workspace if the secondary container exist and for the
     # i3dt standard mode.
@@ -671,24 +677,19 @@ def i3dt_mirror(i3):
     if scnd and I3DT[key]['mode'] == 'i3dt':
 
         # Swap the containers.
-        i3.command('[con_id={}] swap container with con_id {}'\
+        execute_commands('[con_id={}] swap container with con_id {}'\
                 .format(main[0].id, scnd[0].id))
-
-    if I3DT_DEBUG:
-        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
 def i3dt_reflect(i3):
 
     global I3DT
 
+    logging.info('Workspace::Reflect')
+
     tree = i3.get_tree()
     focused = tree.find_focused()
     workspace = focused.workspace()
-
-    if I3DT_DEBUG:
-        print('\nWorkspace::Reflect')
-        print('==================')
 
     # Only reflect the workspace if the secondary container exist and for the
     # i3dt standard mode.
@@ -699,7 +700,7 @@ def i3dt_reflect(i3):
 
         # Change the split container.
         scnd = scnd[0]
-        i3.command('[con_id={}] layout toggle split'.format(scnd.id))
+        execute_commands('[con_id={}] layout toggle split'.format(scnd.id))
 
         # Read the split container, that is, the first descendant of the
         # workspace container.
@@ -708,7 +709,7 @@ def i3dt_reflect(i3):
         glbl = workspace.find_marked(glbl_mark)
         if not glbl:
             glbl = workspace.descendants()[0]
-            i3.command('[con_id={}] mark {}'\
+            execute_commands('[con_id={}] mark {}'\
                     .format(glbl.id, glbl_mark))
         else:
             glbl = glbl[0]
@@ -718,21 +719,15 @@ def i3dt_reflect(i3):
         if (scnd.layout == 'splitv' and glbl.orientation == 'vertical') or \
                 (scnd.layout == 'splith' and glbl.orientation == 'horizontal'):
             scnd_children = scnd.descendants()
-            i3.command('[con_id={}] layout toggle split'\
+            execute_commands('[con_id={}] layout toggle split'\
                     .format(scnd_children[0].id))
-
-    if I3DT_DEBUG:
-        print('I3DT {}: {}'.format(key, I3DT[key]))
-
 
 def i3dt_kill(i3):
 
     global I3DT
 
     # Print debug info.
-    if I3DT_DEBUG:
-        print('\nWindow::Kill')
-        print('============')
+    logging.info('Window::Kill')
 
     # Get workspace information.
     focused = i3.get_tree().find_focused()
@@ -765,7 +760,7 @@ def i3dt_kill(i3):
     # windows in the main container then it is safe to kill the focused window.
     command = []
     if not main_focused or (main_focused and len(main_children) > 1):
-        i3.command('kill')
+        execute_commands('kill')
     else:
         # The focused window is the only window in the main container. If there
         # is a secondary container then swap the focused window with the first
@@ -789,69 +784,129 @@ def i3dt_kill(i3):
                 .format(focused.id))
 
     # Execute command.
-    if command:
-        i3.command(', '.join(command))
-
-    # Print debug info.
-    if I3DT_DEBUG:
-        print('I3DT {}: {}'.format(key, I3DT[key]))
+    execute_commands(command)
 
 
 def on_workspace_focus(i3, e):
 
     global I3DT
 
+    # Logging event.
+    logging.info('Workspace::Focus')
+
+    key = e.current.name
+    glbl_mark = I3DT_GLBL_MARK.format(key)
+    main_mark = I3DT_MAIN_MARK.format(key)
+    scnd_mark = I3DT_SCND_MARK.format(key)
+    tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
     tree = i3.get_tree()
-    # focused = tree.find_focused()
-    # workspace = focused.workspace()
-    # ws_name = workspace.name
-    # key = e.current.name
+    focused = tree.find_focused()
+    workspace = focused.workspace()
+    marks = i3.get_marks()
 
-    # if I3DT_DEBUG:
-    #     print('\nWorkspace::Focus')
-    #     print('================')
+    if not key in I3DT:
 
-    # if not key in I3DT:
+        # Initialize the I3DT dictionary.
+        I3DT[key] = { 'mode': 'i3' }
 
-    #     # Get descendants.
-    #     containers = e.current.descendants()
+        # Exit if workspace is in the ignore list.
+        if key in I3DT_WORKSPACE_IGNORE:
+            return
 
-    #     # Exit if no containers.
-    #     if not containers:
-    #         return
+        # Check the container marks for the main and secondary container.
+        I3DT[key] = { 'mode': 'i3' }
+        for m in marks:
+            if m in [main_mark, scnd_mark]:
+                I3DT[key]['mode'] = 'i3dt'
+            elif m == glbl_mark:
+                glbl = workspace.find_marked(glbl_mark)
+                if glbl[0].layout == 'tabbed':
+                    I3DT[key]['mode'] = 'simple_tabbed'
+                    break
+            elif m.startswith(tbbd_mark):
+                I3DT[key]['mode'] = 'tabbed'
+                break
 
-    #     # Initialize the I3DT dictionary.
-    #     I3DT[key] = {
-    #             'mode': 'i3',
-    #             'glbl': {'id': [], 'orientation': 'horizontal'},
-    #             'main': {'id': [], 'layout': 'splitv', 'children': []},
-    #             'scnd': {'id': [], 'layout': 'splitv', 'children': []},
-    #             }
 
-    #     # Exit if workspace is in the ignore list.
-    #     if key in I3DT_WORKSPACE_IGNORE:
-    #         if I3DT_DEBUG:
-    #             print('I3DT {}: {}'.format(key, I3DT[key]))
-    #         return
+    # Create an I3DT session.
+    if I3DT[key]['mode'] == 'i3':
 
-    #     # Check the container marks for the main and secondary container.
-    #     main_mark = I3DT_MAIN_MARK.format(e.current.name)
-    #     scnd_mark = I3DT_SCND_MARK.format(e.current.name)
-    #     tbbd_mark = I3DT_SCND_TBBD_MARK.format(e.current.name)
-    #     for c in containers:
-    #         for m in c.marks:
-    #             if m == main_mark:
-    #                 I3DT[key]['mode'] = 'i3dt'
-    #                 break
-    #             elif m == scnd_mark:
-    #                 I3DT[key]['mode'] = 'i3dt'
-    #                 break
-    #             elif m.startswith(tbbd_mark):
-    #                 I3DT[key]['mode'] = 'tabbed'
-    #                 break
+        # Get descendants.
+        I3DT[key]['mode'] = 'i3dt'
+        windows = workspace.leaves()
 
-    #     # Create I3DT session.
-    #     if I3DT[key]['mode'] == 'i3':
+        # Exit if there are less than two windows.
+        if len(windows) < 2:
+            return
+
+        # Create the main container.
+        windows = workspace.leaves()
+        window = windows.pop(0)
+        i3.command('[con_id={}] focus, splitv'.format(window.id))
+        workspace = i3.get_tree().find_focused().workspace()
+        main_container = []
+        for c in workspace.descendants():
+            for d in c.descendants():
+                if d.id == window.id:
+                    main_container = c
+                    break
+            if main_container:
+                break
+        # print('----')
+        # print(main_container.id)
+        # print('----')
+        i3.command('[con_id={}] mark {}'.format(main_container, main_mark))
+
+        # Create the secondary container.
+        window = windows.pop(0)
+        i3.command('[con_id={}] focus, splitv'.format(window.id))
+        workspace = i3.get_tree().find_focused().workspace()
+        scnd_container = []
+        for c in workspace.descendants():
+            for d in c.descendants():
+                if d.id == window.id:
+                    scnd_container = c.id
+                    break
+            if scnd_container:
+                break
+        i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+        for c in windows:
+            i3.command('[con_id={}] move to mark {}'.format(c.id, scnd_mark))
+
+    else:
+        # Find unmanaged windows.
+        unmanaged_windows = workspace.leaves()
+        main = workspace.find_marked(main_mark)
+        if main:
+            for c in main[0].leaves():
+                unmanaged_windows.remove(c)
+        scnd = workspace.find_marked(scnd_mark)
+        if scnd:
+            for c in scnd[0].leaves():
+                unmanaged_windows.remove(c)
+
+        # Move all unmanaged windows to an existing container.
+        mark = scnd_mark
+        if not scnd:
+            mark = main_mark
+        command = []
+        for c in unmanaged_windows:
+            command.append('[con_id={}] move to mark {}'\
+                    .format(c.id, mark))
+        i3.command(', '.join(command))
+
+
+        # # Exit if no windows.
+        # if not containers:
+        #     return
+
+
+        # # Parse the workspace.
+        # key = workspace.name
+
+
+        # Create I3DT session.
+        # if I3DT[key]['mode'] == 'i3':
 
     #         # Find all windows with a valid name.
     #         focused = []
@@ -898,13 +953,12 @@ def on_workspace_focus(i3, e):
     #         # Focus the correct window.
     #         i3.command('[con_id={}] focus'.format(focused))
 
-    # if I3DT_DEBUG:
-    #     print('I3DT {}: {}'.format(key, I3DT[key]))
-
 
 def on_window_new(i3, e):
 
     global I3DT
+
+    logging.info('Window::New')
 
     # Get the basic i3 state information.
     tree = i3.get_tree()
@@ -926,10 +980,6 @@ def on_window_new(i3, e):
         I3DT[key]['mode'] = 'i3'
         return
 
-    # Print debug info.
-    if I3DT_DEBUG:
-        print('\nWindow::New')
-        print('===========')
 
     # Find the application windows on the focused workspace.
     wrks_children = []
@@ -952,7 +1002,8 @@ def on_window_new(i3, e):
     # Create the main container.
     command = []
     if not main:
-        i3.command('[con_id={}] focus, splitv'.format(wrks_children[0]))
+        execute_commands('[con_id={}] focus, splitv'\
+                .format(wrks_children[0]))
         workspace = i3.get_tree().find_focused().workspace()
         main_container = []
         for c in workspace.descendants():
@@ -962,11 +1013,12 @@ def on_window_new(i3, e):
                     break
             if main_container:
                 break
-        i3.command('[con_id={}] mark {}'.format(main_container, main_mark))
+        execute_commands('[con_id={}] mark {}'\
+                .format(main_container, main_mark))
 
         # Create the secondary container.
         if not scnd:
-            i3.command('[con_id={}] focus, splitv'.format(wrks_children[1]))
+            execute_commands('[con_id={}] focus, splitv'.format(wrks_children[1]))
             workspace = i3.get_tree().find_focused().workspace()
             scnd_container = []
             for c in workspace.descendants():
@@ -976,11 +1028,11 @@ def on_window_new(i3, e):
                         break
                 if scnd_container:
                     break
-            i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+            execute_commands('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
     else:
         # Create the secondary container.
         if not scnd:
-            i3.command('[con_id={}] move right, splitv'.format(window.id))
+            execute_commands('[con_id={}] move right, splitv'.format(window.id))
             workspace = i3.get_tree().find_focused().workspace()
             scnd_container = []
             for c in workspace.descendants():
@@ -990,7 +1042,7 @@ def on_window_new(i3, e):
                         break
                 if scnd_container:
                     break
-            i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+            execute_commands('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
 
             # Make sure that the secondary container is on the same level as
             # the main container.
@@ -1000,28 +1052,23 @@ def on_window_new(i3, e):
             glbl = workspace.find_marked(glbl_mark)
             scnd = workspace.find_marked(scnd_mark)
             if glbl:
-                i3.command('[con_id={}] move to mark {}'\
+                execute_commands('[con_id={}] move to mark {}'\
                         .format(scnd[0].id, glbl_mark))
             else:
                 containers = workspace.descendants()
                 if not containers[0].id == main[0].id and containers[1].id == scnd[0].id:
-                    i3.command('[con_id={}] mark {}'\
+                    execute_commands('[con_id={}] mark {}'\
                             .format(containers[0].id, glbl_mark))
-                    i3.command('[con_id={}] move to mark {}'\
+                    execute_commands('[con_id={}] move to mark {}'\
                             .format(scnd[0].id, glbl_mark))
         else:
             # If window spawned in the main constainer move it to the secondary
             # container.
             for c in main[0].descendants():
                 if c.id == window.id:
-                    i3.command('[con_id={}] move to mark {}'\
+                    execute_commands('[con_id={}] move to mark {}'\
                             .format(window.id, scnd_mark))
                     break
-
-
-    # Print debug info.
-    if I3DT_DEBUG:
-        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 
 def on_binding(i3, e):
