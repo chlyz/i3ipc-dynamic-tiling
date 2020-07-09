@@ -30,21 +30,20 @@ logging.basicConfig(
         # filename='/tmp/example.log',
         # filemode='w',
         format='%(asctime)s %(levelname)s: %(message)s',
-        # datefmt='%Y-%m-%d %I:%M:%S',
         level=logging.DEBUG)
 
 def execute_commands(commands):
-
     # Execute all commands
     if commands:
         if isinstance(commands, list):
+            logging.debug('\tExecuting:')
             i3.command(', '.join(commands))
             for c in commands:
                 logging.debug('\t+ Command: {}'.format(c))
         else:
+            logging.debug('\tExecuting:')
             i3.command(commands)
             logging.debug('\t+ Command: {}'.format(commands))
-
     return []
 
 
@@ -727,7 +726,7 @@ def i3dt_kill(i3):
     global I3DT
 
     # Print debug info.
-    logging.info('Window::Kill')
+    logging.info('Window::Kill::i3dt_kill')
 
     # Get workspace information.
     focused = i3.get_tree().find_focused()
@@ -736,14 +735,14 @@ def i3dt_kill(i3):
     # If workspace is handled by i3 simply kill the window and exit.
     key = workspace.name
     if key in I3DT_WORKSPACE_IGNORE:
-        i3.command('kill')
+        execute_commands('kill')
         return
 
     # If there is no main container then simply send kill the window and exit.
     main_mark = I3DT_MAIN_MARK.format(key)
     main = workspace.find_marked(main_mark)
     if not main:
-        i3.command('kill')
+        execute_commands('kill')
         return
     else:
         main = main[0]
@@ -760,7 +759,7 @@ def i3dt_kill(i3):
     # windows in the main container then it is safe to kill the focused window.
     command = []
     if not main_focused or (main_focused and len(main_children) > 1):
-        execute_commands('kill')
+        command.append('kill')
     else:
         # The focused window is the only window in the main container. If there
         # is a secondary container then swap the focused window with the first
@@ -842,7 +841,7 @@ def on_workspace_focus(i3, e):
         # Create the main container.
         windows = workspace.leaves()
         window = windows.pop(0)
-        i3.command('[con_id={}] focus, splitv'.format(window.id))
+        execute_commands('[con_id={}] focus, splitv'.format(window.id))
         workspace = i3.get_tree().find_focused().workspace()
         main_container = []
         for c in workspace.descendants():
@@ -852,26 +851,28 @@ def on_workspace_focus(i3, e):
                     break
             if main_container:
                 break
-        # print('----')
-        # print(main_container.id)
-        # print('----')
-        i3.command('[con_id={}] mark {}'.format(main_container, main_mark))
+        execute_commands('[con_id={}] mark {}'\
+                .format(main_container.id, main_mark))
 
         # Create the secondary container.
         window = windows.pop(0)
-        i3.command('[con_id={}] focus, splitv'.format(window.id))
+        execute_commands('[con_id={}] focus, splitv'.format(window.id))
         workspace = i3.get_tree().find_focused().workspace()
         scnd_container = []
         for c in workspace.descendants():
             for d in c.descendants():
                 if d.id == window.id:
-                    scnd_container = c.id
+                    scnd_container = c
                     break
             if scnd_container:
                 break
-        i3.command('[con_id={}] mark {}'.format(scnd_container, scnd_mark))
+        command = []
+        command.append('[con_id={}] mark {}'\
+                .format(scnd_container.id, scnd_mark))
         for c in windows:
-            i3.command('[con_id={}] move to mark {}'.format(c.id, scnd_mark))
+            command.append('[con_id={}] move to mark {}'\
+                    .format(c.id, scnd_mark))
+        execute_commands(command)
 
     else:
         # Find unmanaged windows.
@@ -893,7 +894,7 @@ def on_workspace_focus(i3, e):
         for c in unmanaged_windows:
             command.append('[con_id={}] move to mark {}'\
                     .format(c.id, mark))
-        i3.command(', '.join(command))
+        execute_commands(command)
 
 
         # # Exit if no windows.
