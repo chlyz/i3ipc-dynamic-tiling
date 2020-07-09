@@ -9,7 +9,7 @@ import argparse
 import logging
 
 ###############################################################################
-# Argument parser#                                                            #
+# Argument parser                                                             #
 ###############################################################################
 
 parser = argparse.ArgumentParser(description=\
@@ -17,18 +17,21 @@ parser = argparse.ArgumentParser(description=\
         manager, trying to mimic the tiling behavior of the excellent DWM and
         XMONAD window managers, while utilizing the strengths of I3 and SWAY.
         """)
+
 parser.add_argument(
         '--log-level',
         nargs='?',
         default='info',
         help="""The logging level: debug, info [default], warning, error, or
         critical.""")
+
 parser.add_argument(
         '--workspaces-ignore',
         nargs='*',
         default='',
         help="""Workspaces to be handled manually as default i3, that is, not
         handled dynamically.""")
+
 parser.add_argument(
         '--workspaces-only',
         nargs='*',
@@ -36,6 +39,7 @@ parser.add_argument(
         help="""Workspaces to be handled manually dynamical, that is, all other
         workspaces will be handled manually as the default i3. This will
         override the --workspaces-ignore option.""")
+
 args = parser.parse_args()
 
 # Check the logging level argument.
@@ -140,12 +144,20 @@ def i3dt_focus(i3, e):
                 focused_index = index
             index += 1
 
-        if action == 'next':
-            command.append('[con_id={}] focus'\
-                    .format(windows[(focused_index + 1) % len(windows)]))
-        elif action == 'prev':
-            command.append('[con_id={}] focus'\
-                    .format(windows[(focused_index - 1) % len(windows)]))
+        if not focused_index:
+            if action == 'next':
+                command.append('[con_id={}] focus'\
+                        .format(windows[1 % len(windows)]))
+            elif action == 'prev':
+                command.append('[con_id={}] focus'\
+                        .format(windows[(len(windows) - 1) % len(windows)]))
+        else:
+            if action == 'next':
+                command.append('[con_id={}] focus'\
+                        .format(windows[(focused_index + 1) % len(windows)]))
+            elif action == 'prev':
+                command.append('[con_id={}] focus'\
+                        .format(windows[(focused_index - 1) % len(windows)]))
         if is_fullscreen_mode:
             command.append('fullscreen toggle')
 
@@ -465,11 +477,13 @@ def i3dt_tabbed_toggle(i3):
     if key in I3DT_WORKSPACE_IGNORE:
         return
 
+    glbl_mark = I3DT_GLBL_MARK.format(key)
     main_mark = I3DT_MAIN_MARK.format(key)
     scnd_mark = I3DT_SCND_MARK.format(key)
     tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
 
-    main = tree.find_marked(main_mark)
+    glbl = workspace.find_marked(glbl_mark)
+    main = workspace.find_marked(main_mark)
 
     if I3DT[key]['mode'] == 'i3dt':
 
@@ -579,7 +593,7 @@ def i3dt_tabbed_toggle(i3):
         main = main[0]
         main_children = []
         scnd_children = []
-        for c in main.descendants():
+        for c in main.leaves():
             in_scnd = False
             for m in c.marks:
                 if m.startswith(tbbd_mark):
@@ -602,7 +616,6 @@ def i3dt_tabbed_toggle(i3):
 
         # Move as few windows as possible.
         if len(scnd_children) > len(main_children):
-
             scnd = main
 
             # Create a temporary split container for the first window with the
@@ -616,6 +629,12 @@ def i3dt_tabbed_toggle(i3):
 
             # Find the temporary split container.
             main_container = i3.get_tree().find_by_id(workspace.id).descendants()[0]
+
+            # Move the new split container into the global container.
+            if glbl:
+                i3.command('move to mark{}'\
+                        .format(main_container.id))
+
 
             # Mark the main container.
             main = main_container
@@ -641,27 +660,31 @@ def i3dt_tabbed_toggle(i3):
             # Create a temporary split container for the last window with the
             # purpose to be the new scnd container.
             # TODO: Generalize the right movement to handle moved windows.
-            scnd_last_child = scnd_children.pop(-1)
-            if not key in I3DT_SCND_LAYOUT:
-                I3DT_SCND_LAYOUT[key] = 'splitv'
-            i3.command('[con_id={}] focus, move right, splitv, layout {}'\
-                    .format(scnd_last_child.id, I3DT_SCND_LAYOUT[key]))
-            scnd = i3.get_tree().find_by_id(workspace.id).descendants()[1] # Needs to be generalized.
+            logging.debug('\tFewer seconadary children')
+            if glbl:
+                i3.command('[con_id={}] move right'\
+                        .format(main.id))
+            # scnd_last_child = scnd_children.pop(-1)
+            # if not key in I3DT_SCND_LAYOUT:
+            #     I3DT_SCND_LAYOUT[key] = 'splitv'
+            # i3.command('[con_id={}] focus, move right, splitv, layout {}'\
+            #         .format(scnd_last_child.id, I3DT_SCND_LAYOUT[key]))
+            # scnd = i3.get_tree().find_by_id(workspace.id).descendants()[1] # Needs to be generalized.
 
-            # Mark the scnd container.
-            command.append('[con_id={}] mark {}'\
-                        .format(scnd.id, scnd_mark))
+            # # Mark the scnd container.
+            # command.append('[con_id={}] mark {}'\
+            #             .format(scnd.id, scnd_mark))
 
-            # Move the remaining children to the scnd container.
-            for c in scnd_children:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(c.id, scnd_mark))
+            # # Move the remaining children to the scnd container.
+            # for c in scnd_children:
+            #     command.append('[con_id={}] move to mark {}'\
+            #             .format(c.id, scnd_mark))
 
-            # Apply the stored layout to the main container.
-            if not key in I3DT_MAIN_LAYOUT:
-                I3DT_MAIN_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] layout {}'\
-                     .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
+            # # Apply the stored layout to the main container.
+            # if not key in I3DT_MAIN_LAYOUT:
+            #     I3DT_MAIN_LAYOUT[key] = 'splitv'
+            # command.append('[con_id={}] layout {}'\
+            #          .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
 
         # Focus the right container.
         command.append('[con_id={}] focus'\
