@@ -5,47 +5,107 @@ import i3ipc
 from i3ipc import Event
 import os
 import time
+import argparse
 import logging
 
-# Global variables.
+###############################################################################
+# Argument parser#                                                            #
+###############################################################################
 
-I3DT_DEBUG            = True
-I3DT_WORKSPACE_IGNORE = ["1", "4"]
-I3DT_GLBL_MARK        = 'I3DT_GLBL_{}'
-I3DT_MAIN_MARK        = 'I3DT_MAIN_{}'
-I3DT_SCND_MARK        = 'I3DT_SCND_{}'
-I3DT_MAIN_TBBD_MARK   = 'I3DT_MAIN_{}_TBBD_'
-I3DT_SCND_TBBD_MARK   = 'I3DT_SCND_{}_TBBD_'
+parser = argparse.ArgumentParser(description=\
+        """A Python IPC implementation of dynamic tiling for the i3 window
+        manager, trying to mimic the tiling behavior of the excellent DWM and
+        XMONAD window managers, while utilizing the strengths of I3 and SWAY.
+        """)
+parser.add_argument(
+        '--log-level',
+        nargs='?',
+        default='info',
+        help="""The logging level: debug, info [default], warning, error, or
+        critical.""")
+parser.add_argument(
+        '--workspaces-ignore',
+        nargs='*',
+        default='',
+        help="""Workspaces to be handled manually as default i3, that is, not
+        handled dynamically.""")
+parser.add_argument(
+        '--workspaces-only',
+        nargs='*',
+        default='',
+        help="""Workspaces to be handled manually dynamical, that is, all other
+        workspaces will be handled manually as the default i3. This will
+        override the --workspaces-ignore option.""")
+args = parser.parse_args()
 
-I3DT = dict()
-I3DT_MAIN_LAYOUT = dict()
-I3DT_SCND_LAYOUT = dict()
-SCRATCHPAD_NAME = '__i3_scratch'
+# Check the logging level argument.
+log_level_numeric = getattr(logging, args.log_level.upper(), None)
+if not isinstance(log_level_numeric, int):
+    raise ValueError('Invalid log level: {}'.format(args.log_level))
+
+# Check the workspace ignore argument.
+for w in args.workspaces_ignore:
+    if w not in map(str, range(1, 10)):
+        raise ValueError('Invalid ignore workspace: {}'.format(args.workspaces_ignore))
+
+# Check the workspace ignore argument.
+for w in args.workspaces_ignore:
+    if w not in map(str, range(1, 10)):
+        raise ValueError('Invalid ignore workspace: {}'.format(args.workspaces_ignore))
+
+###############################################################################
+# Logging                                                                     #
+###############################################################################
+
+# Create the logger.
+logging.basicConfig(
+        format='%(asctime)s %(levelname)s: %(message)s',
+        level=log_level_numeric)
+
+###############################################################################
+# Global variables                                                            #
+###############################################################################
+
+I3DT                = dict()
+I3DT_MAIN_LAYOUT    = dict()
+I3DT_SCND_LAYOUT    = dict()
+I3DT_GLBL_MARK      = 'I3DT_GLBL_{}'
+I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
+I3DT_SCND_MARK      = 'I3DT_SCND_{}'
+I3DT_MAIN_TBBD_MARK = 'I3DT_MAIN_{}_TBBD_'
+I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
+
+# Workspaces to ignore.
+I3DT_WORKSPACE_IGNORE = []
+if args.workspaces_only:
+    I3DT_WORKSPACE_IGNORE = list(map(str, range(1, 10)))
+    for w in args.workspaces_only:
+        I3DT_WORKSPACE_IGNORE.remove(w)
+elif args.workspaces_ignore:
+    I3DT_WORKSPACE_IGNORE = args.workspaces_ignore
 
 previous_window = []
 current_window = []
 
-# Enable logging
-logging.basicConfig(
-        # filename='/tmp/example.log',
-        # filemode='w',
-        format='%(asctime)s %(levelname)s: %(message)s',
-        level=logging.DEBUG)
+
+###############################################################################
+# Helper functions                                                            #
+###############################################################################
 
 def execute_commands(commands, preamble='Executing:'):
     # Execute all commands
     if commands:
         if isinstance(commands, list):
             if preamble:
-                logging.debug('\t' + preamble)
+                logging.debug(preamble)
             i3.command(', '.join(commands))
             for c in commands:
-                logging.debug('\t+ Command: {}'.format(c))
+                logging.debug('+ Command: {}'.format(c))
         else:
             if preamble:
-                logging.debug('\t' + preamble)
+                logging.debug(preamble)
             i3.command(commands)
-            logging.debug('\t+ Command: {}'.format(commands))
+            logging.debug('+ Command: {}'.format(commands))
     return []
 
 
@@ -287,7 +347,6 @@ def i3dt_tabbed_simple_toggle(i3):
     global I3DT
 
     logging.info('Workspace::Simple Tabbed')
-    t0 = time.time()
 
     # Commmand chain array.
     command = []
@@ -312,77 +371,53 @@ def i3dt_tabbed_simple_toggle(i3):
 
     if I3DT[key]['mode'] == 'i3dt':
 
-        if I3DT_DEBUG:
-            print('Entering')
-
         # Exit if there is no main container.
         if not main:
             return
 
         # Set tabbed mode enabled.
         I3DT[key]['mode'] = 'simple_tabbed'
+        logging.debug('Enable:')
 
         # Store main layout and make tabbed.
-        tm0 = time.time()
         main = main[0]
         main_child = main.descendants()[0]
         I3DT_MAIN_LAYOUT[key] = main.layout
         if not main.layout == 'tabbed':
             command.append('[con_id={}] layout tabbed'\
                     .format(main_child.id))
-        i3.command(', '.join(command))
-        command = []
-        tm1 = time.time()
 
         if scnd:
             # Store the layout of the secondary container and make tabbed.
-            ts0 = time.time()
             scnd = scnd[0]
             scnd_child = scnd.descendants()[0]
             I3DT_SCND_LAYOUT[key] = scnd.layout
-            td0 = time.time()
             if not scnd.layout == 'tabbed':
-                i3.command('[con_id={}] layout tabbed'\
+                command.append('[con_id={}] layout tabbed'\
                         .format(scnd_child.id))
-            td1 = time.time()
 
             if glbl:
                 command.append('[con_id={}] layout tabbed'.\
                         format(scnd.id))
 
-            i3.command(', '.join(command))
-            command = []
-            ts1 = time.time()
-
             # Make the secondary container tabbed.
-            tg0 = time.time()
             if not glbl:
                 command.append('[con_id={}] layout tabbed'.\
                         format(workspace.id))
-                # command.append('[con_id={}] focus, focus parent, layout tabbed'.\
-                #         format(scnd.id))
-                # command.append('[con_id={}] focus'.\
-                #         format(focused.id))
-                i3.command(', '.join(command))
-                command = []
+                command = execute_commands(command, '')
                 tree = i3.get_tree()
                 focused = tree.find_focused()
                 workspace = focused.workspace()
                 command.append('[con_id={}] mark {}'.\
                         format(workspace.descendants()[0].id, glbl_mark))
-            i3.command(', '.join(command))
-            command = []
-            tg1 = time.time()
+
+        execute_commands(command, '')
 
     elif I3DT[key]['mode'] == 'simple_tabbed':
-
-        if I3DT_DEBUG:
-            print('Leaving')
 
         # Set i3dt mode enabled.
         I3DT[key]['mode'] = 'i3dt'
 
-        ts0 = time.time()
         if scnd:
 
             # Focus the secondary container and make split.
@@ -396,11 +431,6 @@ def i3dt_tabbed_simple_toggle(i3):
                 command.append('[con_id={}] layout {}'\
                         .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
 
-        i3.command(', '.join(command))
-        command = []
-        ts1 = time.time()
-
-        tm0 = time.time()
         if main:
 
             main = main[0]
@@ -408,26 +438,11 @@ def i3dt_tabbed_simple_toggle(i3):
             if not main.layout == I3DT_MAIN_LAYOUT[key]:
                 command.append('[con_id={}] layout {}'\
                         .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
-        i3.command(', '.join(command))
-        command = []
-        tm1 = time.time()
-
-        tg0 = 0
-        tg1 = 0
-        td0 = 0
-        td1 = 0
 
 
-    # Execute the command chain.
-    if command:
-        tc0 = time.time()
-        i3.command(', '.join(command))
-        tc1 = time.time()
+        # Execute command chain.
+        execute_commands(command, 'Disable:')
 
-    if I3DT_DEBUG:
-        t1 = time.time()
-        print('Time: {} | M: {} | S: {} {} | G: {}'.format(t1 - t0, tm1 - tm0, ts1 - ts0, td1 - td0, tg1 - tg0))
-        print('I3DT {}: {}'.format(key, I3DT[key]))
 
 # The goal of tabbing mode, but slow.
 def i3dt_tabbed_toggle(i3):
@@ -547,6 +562,9 @@ def i3dt_tabbed_toggle(i3):
                 if not scnd.layout == 'tabbed':
                     command.append('layout tabbed')
 
+        # Execute the command chain.
+        execute_commands(command, 'Tabbed Enable:')
+
     elif I3DT[key]['mode'] == 'tabbed':
 
         # Set tabbed mode disabled.
@@ -584,7 +602,6 @@ def i3dt_tabbed_toggle(i3):
 
         # Move as few windows as possible.
         if len(scnd_children) > len(main_children):
-            t0 = time.time()
 
             scnd = main
 
@@ -650,10 +667,8 @@ def i3dt_tabbed_toggle(i3):
         command.append('[con_id={}] focus'\
                 .format(focused.id))
 
-    # Execute the command chain.
-    execute_commands(command)
-
-    return command
+        # Execute the command chain.
+        execute_commands(command, 'Tabbed Disable:')
 
 
 
@@ -699,12 +714,16 @@ def i3dt_reflect(i3):
     # i3dt standard mode.
     key = workspace.name
     scnd_mark = I3DT_SCND_MARK.format(key)
-    scnd = i3.get_tree().find_marked(scnd_mark)
+    scnd = workspace.find_marked(scnd_mark)
+    glbl_mark = I3DT_GLBL_MARK.format(key)
+    glbl = workspace.find_marked(glbl_mark)
+
     if scnd and I3DT[key]['mode'] == 'i3dt':
 
         # Change the split container.
         scnd = scnd[0]
-        execute_commands('[con_id={}] layout toggle split'.format(scnd.id))
+        execute_commands('[con_id={}] layout toggle split'\
+                .format(scnd.id))
 
         # Read the split container, that is, the first descendant of the
         # workspace container.
@@ -714,7 +733,7 @@ def i3dt_reflect(i3):
         if not glbl:
             glbl = workspace.descendants()[0]
             execute_commands('[con_id={}] mark {}'\
-                    .format(glbl.id, glbl_mark))
+                    .format(glbl.id, glbl_mark), '')
         else:
             glbl = glbl[0]
 
@@ -724,7 +743,7 @@ def i3dt_reflect(i3):
                 (scnd.layout == 'splith' and glbl.orientation == 'horizontal'):
             scnd_children = scnd.descendants()
             execute_commands('[con_id={}] layout toggle split'\
-                    .format(scnd_children[0].id))
+                    .format(scnd_children[0].id), '')
 
 def i3dt_kill(i3):
 
