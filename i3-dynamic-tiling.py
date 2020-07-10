@@ -637,7 +637,6 @@ def i3dt_tabbed_toggle(i3):
 
             # Move the new split container into the global container.
             if glbl:
-                logging.debug('\tGlobal exist')
                 command.append('[con_id={}] move to mark {}'\
                         .format(main.id, glbl_mark))
 
@@ -664,18 +663,18 @@ def i3dt_tabbed_toggle(i3):
             # Create a temporary split container for the last window with the
             # purpose to be the new scnd container.
             # TODO: Generalize the right movement to handle moved windows.
-            scnd_last_child = scnd_children.pop(-1)
+            child = scnd_children.pop(-1)
             if not key in I3DT_SCND_LAYOUT:
                 I3DT_SCND_LAYOUT[key] = 'splitv'
             command.append('[con_id={}] focus, move right, splitv, layout {}'\
-                    .format(scnd_last_child.id, I3DT_SCND_LAYOUT[key]))
+                    .format(child.id, I3DT_SCND_LAYOUT[key]))
 
             # Find the temporary split container.
             command = execute_commands(command, '')
             scnd = []
             for c in i3.get_tree().find_by_id(workspace.id).descendants():
                 for d in c.descendants():
-                    if d.id == main_child.id:
+                    if d.id == child.id:
                         scnd = c
 
             # Move the new split container into the global container.
@@ -701,38 +700,6 @@ def i3dt_tabbed_toggle(i3):
         # Focus the right container.
         command.append('[con_id={}] focus'\
                 .format(focused.id))
-
-        # Check if global still exist.
-        if glbl:
-            command = execute_commands(command, '')
-            tree = i3.get_tree()
-            focused = tree.find_focused()
-            workspace = focused.workspace()
-            main = workspace.find_marked(main_mark)
-            main_marks = []
-            for c in main[0].descendants():
-                for m in c.marks:
-                    main_marks.append(m)
-            if main_marks:
-                print('Main marks')
-                for m in main_marks:
-                    print(m)
-            else:
-                print('No main marks')
-
-            scnd = tree.find_marked(scnd_mark)
-            scnd_marks = []
-            for c in scnd[0].descendants():
-                for m in c.marks:
-                    scnd_marks.append(m)
-            if scnd_marks:
-                print('scnd marks')
-                for m in scnd_marks:
-                    print(m)
-            else:
-                print('No scnd marks')
-
-            # maybe_glbl = workspace.descendant()[0]
 
     # Execute the command chain.
     execute_commands(command, '')
