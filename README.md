@@ -45,14 +45,25 @@ Special effects:
 
 The configuration of _i3-dynamic-tiling_ is done in two ways:
 
-### Environmental variables
+### Argument passing
 
-- `I3DT_WORKSPACE_IGNORE`: Workspaces to ignore, that is, use `i3` defaults and
-  do not apply dynamic tiling for these workspaces.
+When execution the `python3 i3-dynamic-tiling.py` there are some options the
+can be set:
 
-- `I3DT_WORKSPACE_ONLY`: Only apply dynamic tiling to these workspaces and let
+- `--workspaces-ignore`: Workspaces to ignore, that is, use `i3` defaults and
+  do not apply dynamic tiling for these workspaces. Example:
+
+  ```bash
+  python3 i3-dynamic-tiling.py --workspace-ignore 1 2 3
+  ```
+
+- `--workspaces-only`: Only apply dynamic tiling to these workspaces and let
   `i3` defaults rule the others. This takes precedence over
-  `I3DT_WORKSPACE_IGNORE`.
+  `--workspaces-ignore`. Example:
+
+  ```bash
+  python3 i3-dynamic-tiling.py --workspace-only 1 2 3
+  ```
 
 ### Configuration file
 
