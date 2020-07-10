@@ -162,7 +162,7 @@ def i3dt_focus(i3, e):
             command.append('fullscreen toggle')
 
     elif action == 'other':
-        if I3DT[key]['mode'] in ['i3dt', 'simple_tabbed']:
+        if I3DT[key]['mode'] == 'i3dt':
             if is_fullscreen_mode:
                 command.append('fullscreen toggle')
             command.append('focus parent, focus next')
@@ -381,14 +381,17 @@ def i3dt_tabbed_simple_toggle(i3):
     main = workspace.find_marked(main_mark)
     scnd = workspace.find_marked(scnd_mark)
 
-    if I3DT[key]['mode'] == 'i3dt':
+    glbl_tabbed = False
+    if glbl and glbl[0].layout == 'tabbed':
+        glbl_tabbed = True
+
+    if not glbl_tabbed:
 
         # Exit if there is no main container.
         if not main:
             return
 
         # Set tabbed mode enabled.
-        I3DT[key]['mode'] = 'simple_tabbed'
         logging.debug('Enable:')
 
         # Store main layout and make tabbed.
@@ -425,32 +428,30 @@ def i3dt_tabbed_simple_toggle(i3):
 
         execute_commands(command, '')
 
-    elif I3DT[key]['mode'] == 'simple_tabbed':
+    else:
 
-        # Set i3dt mode enabled.
-        I3DT[key]['mode'] = 'i3dt'
-
+        # Focus the secondary container and make split.
         if scnd:
-
-            # Focus the secondary container and make split.
             scnd = scnd[0]
             command.append('[con_id={}] layout toggle split'.\
                     format(scnd.id))
 
             # Recreate the layout of the secondary container.
             scnd_children = scnd.descendants()
+            if not key in I3DT_SCND_LAYOUT:
+                I3DT_SCND_LAYOUT[key] = 'splitv'
             if not scnd.layout == I3DT_SCND_LAYOUT[key]:
                 command.append('[con_id={}] layout {}'\
                         .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
 
+        # Recreate the layout of the main container.
         if main:
-
-            main = main[0]
-            main_children = main.descendants()
-            if not main.layout == I3DT_MAIN_LAYOUT[key]:
+            main_children = main[0].descendants()
+            if not key in I3DT_MAIN_LAYOUT:
+                I3DT_MAIN_LAYOUT[key] = 'splitv'
+            if not main[0].layout == I3DT_MAIN_LAYOUT[key]:
                 command.append('[con_id={}] layout {}'\
                         .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
-
 
         # Execute command chain.
         execute_commands(command, 'Disable:')
@@ -482,7 +483,12 @@ def i3dt_tabbed_toggle(i3):
     scnd_mark = I3DT_SCND_MARK.format(key)
     tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
 
+    # Check if the global container is tabbed.
     glbl = workspace.find_marked(glbl_mark)
+    glbl_tabbed = False
+    if glbl and glbl[0].layout == 'tabbed':
+        glbl_tabbed = True
+
     main = workspace.find_marked(main_mark)
 
     if I3DT[key]['mode'] == 'i3dt':
@@ -495,7 +501,8 @@ def i3dt_tabbed_toggle(i3):
 
             # Store main layout and focused window id.
             main = main[0]
-            I3DT_MAIN_LAYOUT[key] = main.layout
+            if not glbl_tabbed:
+                I3DT_MAIN_LAYOUT[key] = main.layout
             main_focused_id = main.focus[0]
 
             # No secondary container: change the layout of the main
@@ -511,7 +518,8 @@ def i3dt_tabbed_toggle(i3):
                 # Store the layout and the focused window of the secondary
                 # container.
                 scnd = scnd[0]
-                I3DT_SCND_LAYOUT[key] = scnd.layout
+                if not glbl_tabbed:
+                    I3DT_SCND_LAYOUT[key] = scnd.layout
                 scnd_focused = scnd.focus[0]
 
                 # Get the children of the secondary container.
@@ -608,8 +616,9 @@ def i3dt_tabbed_toggle(i3):
         if not scnd_children:
             if not key in I3DT_MAIN_LAYOUT:
                 I3DT_MAIN_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] layout {}'\
-                    .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
+            if not glbl_tabbed:
+                command.append('[con_id={}] layout {}'\
+                        .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
             execute_commands(command, '')
             return
 
@@ -621,28 +630,36 @@ def i3dt_tabbed_toggle(i3):
             # Create a temporary split container for the first window with the
             # purpose to be the new main container.
             # TODO: Generalize the left movement to handle moved windows.
-            main_child = main_children.pop(0)
-            if not key in I3DT_MAIN_LAYOUT:
-                I3DT_MAIN_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] focus, move left, splitv, layout {}'\
-                    .format(main_child.id, I3DT_MAIN_LAYOUT[key]))
+            child = main_children.pop(0)
+            command.append('[con_id={}] focus, move left, splitv'\
+                    .format(child.id))
+
+            # Reset the container layout only if not in global tabbed mode.
+            if not glbl_tabbed:
+                if not key in I3DT_MAIN_LAYOUT:
+                    I3DT_MAIN_LAYOUT[key] = 'splitv'
+                command.append('layout {}'\
+                    .format(I3DT_MAIN_LAYOUT[key]))
+            else:
+                command.append('layout tabbed')
 
             # Find the temporary split container.
-            main = []
             command = execute_commands(command, '')
+            main_container = []
+            logging.debug('+ Search after the main container')
             for c in i3.get_tree().find_by_id(workspace.id).descendants():
                 for d in c.descendants():
-                    if d.id == main_child.id:
-                        main = c
+                    if d.id == child.id:
+                        main_container = c
 
             # Move the new split container into the global container.
             if glbl:
                 command.append('[con_id={}] move to mark {}'\
-                        .format(main.id, glbl_mark))
+                        .format(main_container.id, glbl_mark))
 
             # Mark the main container.
             command.append('[con_id={}] mark {}'\
-                        .format(main.id, main_mark))
+                        .format(main_container.id, main_mark))
 
             # Move the remaining children to the main container.
             for c in main_children:
@@ -654,23 +671,31 @@ def i3dt_tabbed_toggle(i3):
                         .format(scnd.id, scnd_mark))
 
             # Apply the stored layout to the secondary container.
-            if not key in I3DT_SCND_LAYOUT:
-                I3DT_SCND_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] layout {}'\
-                     .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
-
+            if not glbl_tabbed:
+                if not key in I3DT_SCND_LAYOUT:
+                    I3DT_SCND_LAYOUT[key] = 'splitv'
+                command.append('[con_id={}] layout {}'\
+                        .format(scnd_children[0].id, I3DT_SCND_LAYOUT[key]))
         else:
             # Create a temporary split container for the last window with the
             # purpose to be the new scnd container.
             # TODO: Generalize the right movement to handle moved windows.
             child = scnd_children.pop(-1)
-            if not key in I3DT_SCND_LAYOUT:
-                I3DT_SCND_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] focus, move right, splitv, layout {}'\
-                    .format(child.id, I3DT_SCND_LAYOUT[key]))
+            command.append('[con_id={}] focus, move right, splitv'\
+                    .format(child.id))
+
+            # Reset the container layout only if not in global tabbed mode.
+            if not glbl_tabbed:
+                if not key in I3DT_SCND_LAYOUT:
+                    I3DT_SCND_LAYOUT[key] = 'splitv'
+                command.append('layout {}'\
+                    .format(I3DT_SCND_LAYOUT[key]))
+            else:
+                command.append('layout tabbed')
 
             # Find the temporary split container.
-            command = execute_commands(command, '')
+            command = execute_commands(command)
+            logging.debug('+ Search after the secondary container')
             scnd = []
             for c in i3.get_tree().find_by_id(workspace.id).descendants():
                 for d in c.descendants():
@@ -692,10 +717,11 @@ def i3dt_tabbed_toggle(i3):
                         .format(c.id, scnd_mark))
 
             # Apply the stored layout to the main container.
-            if not key in I3DT_MAIN_LAYOUT:
-                I3DT_MAIN_LAYOUT[key] = 'splitv'
-            command.append('[con_id={}] layout {}'\
-                     .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
+            if not glbl_tabbed:
+                if not key in I3DT_MAIN_LAYOUT:
+                    I3DT_MAIN_LAYOUT[key] = 'splitv'
+                command.append('[con_id={}] layout {}'\
+                        .format(main_children[0].id, I3DT_MAIN_LAYOUT[key]))
 
         # Focus the right container.
         command.append('[con_id={}] focus'\
@@ -875,11 +901,6 @@ def on_workspace_focus(i3, e):
         for m in marks:
             if m in [main_mark, scnd_mark]:
                 I3DT[key]['mode'] = 'i3dt'
-            elif m == glbl_mark:
-                glbl = workspace.find_marked(glbl_mark)
-                if glbl[0].layout == 'tabbed':
-                    I3DT[key]['mode'] = 'simple_tabbed'
-                    break
             elif m.startswith(tbbd_mark):
                 I3DT[key]['mode'] = 'tabbed'
                 break
