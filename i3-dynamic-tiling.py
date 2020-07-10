@@ -652,14 +652,17 @@ def i3dt_tabbed_toggle(i3):
                     if d.id == child.id:
                         main_container = c
 
+            # Mark the main container.
+            command.append('[con_id={}] mark {}'\
+                        .format(main_container.id, main_mark))
+
             # Move the new split container into the global container.
             if glbl:
                 command.append('[con_id={}] move to mark {}'\
                         .format(main_container.id, glbl_mark))
-
-            # Mark the main container.
-            command.append('[con_id={}] mark {}'\
-                        .format(main_container.id, main_mark))
+                if glbl[0].orientation == 'vertical':
+                    command.append('[con_id={}] swap container with con_id {}'\
+                            .format(main_container.id, scnd.id))
 
             # Move the remaining children to the main container.
             for c in main_children:
