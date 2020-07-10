@@ -772,6 +772,7 @@ def i3dt_reflect(i3):
     # Only reflect the workspace if the secondary container exist and for the
     # i3dt standard mode.
     key = workspace.name
+    main_mark = I3DT_MAIN_MARK.format(key)
     scnd_mark = I3DT_SCND_MARK.format(key)
     scnd = workspace.find_marked(scnd_mark)
     glbl_mark = I3DT_GLBL_MARK.format(key)
@@ -795,6 +796,14 @@ def i3dt_reflect(i3):
                     .format(glbl.id, glbl_mark), '')
         else:
             glbl = glbl[0]
+
+        # Update the layout of the first container.
+        main = workspace.find_marked(main_mark)[0]
+        if (main.layout == 'splitv' and glbl.orientation == 'vertical') or \
+                (main.layout == 'splith' and glbl.orientation == 'horizontal'):
+            main_children = main.descendants()
+            execute_commands('[con_id={}] layout toggle split'\
+                    .format(main_children[0].id), '')
 
         # Update the layout of the secondary container.
         scnd = workspace.find_marked(scnd_mark)[0]
