@@ -628,16 +628,20 @@ def i3dt_tabbed_toggle(i3):
                     .format(main_child.id, I3DT_MAIN_LAYOUT[key]))
 
             # Find the temporary split container.
+            main = []
             command = execute_commands(command, '')
-            main_container = i3.get_tree().find_by_id(workspace.id).descendants()[0]
+            for c in i3.get_tree().find_by_id(workspace.id).descendants():
+                for d in c.descendants():
+                    if d.id == main_child.id:
+                        main = c
 
             # Move the new split container into the global container.
             if glbl:
-                command.append('move to mark{}'\
-                        .format(main_container.id))
+                logging.debug('\tGlobal exist')
+                command.append('[con_id={}] move to mark {}'\
+                        .format(main.id, glbl_mark))
 
             # Mark the main container.
-            main = main_container
             command.append('[con_id={}] mark {}'\
                         .format(main.id, main_mark))
 
@@ -668,12 +672,16 @@ def i3dt_tabbed_toggle(i3):
 
             # Find the temporary split container.
             command = execute_commands(command, '')
-            scnd = i3.get_tree().find_by_id(workspace.id).descendants()[1] # Needs to be generalized.
+            scnd = []
+            for c in i3.get_tree().find_by_id(workspace.id).descendants():
+                for d in c.descendants():
+                    if d.id == main_child.id:
+                        scnd = c
 
             # Move the new split container into the global container.
             if glbl:
-                command.append('move to mark{}'\
-                        .format(main_container.id))
+                command.append('[con_id={}] move to mark {}'\
+                        .format(scnd.id, glbl_mark))
 
             # Mark the scnd container.
             command.append('[con_id={}] mark {}'\
@@ -693,6 +701,38 @@ def i3dt_tabbed_toggle(i3):
         # Focus the right container.
         command.append('[con_id={}] focus'\
                 .format(focused.id))
+
+        # Check if global still exist.
+        if glbl:
+            command = execute_commands(command, '')
+            tree = i3.get_tree()
+            focused = tree.find_focused()
+            workspace = focused.workspace()
+            main = workspace.find_marked(main_mark)
+            main_marks = []
+            for c in main[0].descendants():
+                for m in c.marks:
+                    main_marks.append(m)
+            if main_marks:
+                print('Main marks')
+                for m in main_marks:
+                    print(m)
+            else:
+                print('No main marks')
+
+            scnd = tree.find_marked(scnd_mark)
+            scnd_marks = []
+            for c in scnd[0].descendants():
+                for m in c.marks:
+                    scnd_marks.append(m)
+            if scnd_marks:
+                print('scnd marks')
+                for m in scnd_marks:
+                    print(m)
+            else:
+                print('No scnd marks')
+
+            # maybe_glbl = workspace.descendant()[0]
 
     # Execute the command chain.
     execute_commands(command, '')
