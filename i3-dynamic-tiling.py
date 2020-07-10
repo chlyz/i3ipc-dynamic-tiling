@@ -52,10 +52,10 @@ for w in args.workspaces_ignore:
     if w not in map(str, range(1, 10)):
         raise ValueError('Invalid ignore workspace: {}'.format(args.workspaces_ignore))
 
-# Check the workspace ignore argument.
-for w in args.workspaces_ignore:
+# Check the workspace only argument.
+for w in args.workspaces_only:
     if w not in map(str, range(1, 10)):
-        raise ValueError('Invalid ignore workspace: {}'.format(args.workspaces_ignore))
+        raise ValueError('Invalid only workspace: {}'.format(args.workspaces_only))
 
 ###############################################################################
 # Logging                                                                     #
