@@ -64,10 +64,61 @@ can be set:
   ```bash
   python3 i3-dynamic-tiling.py --workspace-only 1 2 3
   ```
+For debugging purposes, one can also change the level of logging with
+
+- `--log-level`: The level of logging.
+
+  ```bash
+  python3 i3-dynamic-tiling.py --log-level debug
+  ```
 
 ### Configuration file
 
-TODO: Add a minimal configuration file.
+These are my special settings that I use for this framework. Notice the `nop`
+on _i3-dynamic-tiling_ special commands.
+
+
+```
+# Settings.
+hide_edge_borders smart
+default_border pixel 2
+focus_follows_mouse no
+workspace_auto_back_and_forth yes
+show_marks no
+
+# Focus next with cycling.
+bindsym $mod+j nop i3dt_focus next
+
+# Focus previous with cycling.
+bindsym $mod+k nop i3dt_focus prev
+
+# Focus other container.
+bindsym $mod+o nop i3dt_focus other
+
+# Move other container.
+bindsym $mod+shift+o nop i3dt_move other
+
+# Toggle monocle tabbed mode.
+bindsym $mod+space nop i3dt_tabbed_toggle
+
+# Toggle tabbed workspace split mode.
+bindsym $mod+shift+space nop i3dt_tabbed_simple_toggle
+
+# Kill focused window.
+bindsym $mod+shift+q nop i3dt_kill
+
+# Toggle secondary to the side of or below of main.
+bindsym $mod+backslash nop i3dt_reflect
+
+# Toggle secondary to the right or left hand side of main.
+bindsym $mod+shift+backslash nop i3dt_mirror
+
+# Toggle workspace.
+bindsym $mod+Tab workspace back_and_forth
+
+# Toggle layout current container.
+bindsym $mod+semicolon layout toggle tabbed split
+```
 
 ## Inspiration
 
