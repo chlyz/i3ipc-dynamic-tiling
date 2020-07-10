@@ -991,64 +991,6 @@ def on_workspace_focus(i3, e):
         execute_commands(command)
 
 
-        # # Exit if no windows.
-        # if not containers:
-        #     return
-
-
-        # # Parse the workspace.
-        # key = workspace.name
-
-
-        # Create I3DT session.
-        # if I3DT[key]['mode'] == 'i3':
-
-    #         # Find all windows with a valid name.
-    #         focused = []
-    #         windows = []
-    #         for c in containers:
-    #             if not c.name == None:
-    #                 windows.append(c)
-    #                 if c.focused:
-    #                     focused = c.id
-
-    #         # Make sure that one window will be focused.
-    #         if not focused:
-    #             focused = window[0].id
-
-    #         # Move all windows to the scratchpad.
-    #         for w in windows:
-    #             i3.command('[con_id={}] move scratchpad'.format(w.id))
-
-    #         # Make sure to horizontally.
-    #         i3.command('split h, layout splith')
-
-    #         # Move all windows back and tile.
-    #         no_main = True
-    #         no_scnd = True
-    #         for w in windows:
-
-    #             # Get window from scratchpad, focus and tile.
-    #             i3.command('[con_id={}] scratchpad show, floating toggle, focus'.format(w.id))
-
-    #             # Create the main and secondary containers.
-    #             if no_main:
-    #                 # Main container.
-    #                 i3dt_create_container(i3, w, e.current, main_mark)
-    #                 no_main = False
-    #             elif no_scnd:
-    #                 # Secondary container.
-    #                 i3.command('[con_id={}] focus'.format(I3DT[key]['main']['id']))
-    #                 i3dt_create_container(i3, w, e.current, scnd_mark)
-    #                 no_scnd = False
-    #             else:
-    #                 # Mark the window to the secondary container.
-    #                 I3DT[key]['scnd']['children'].append(w.id)
-
-    #         # Focus the correct window.
-    #         i3.command('[con_id={}] focus'.format(focused))
-
-
 def on_window_new(i3, e):
 
     global I3DT
