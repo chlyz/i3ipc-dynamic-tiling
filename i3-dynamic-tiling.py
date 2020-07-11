@@ -8,6 +8,12 @@ import time
 import argparse
 import logging
 
+# Things to do
+#
+# + Toggle show other
+# + Move next/prev
+# + Tabbed new window
+
 ###############################################################################
 # Argument parser                                                             #
 ###############################################################################
@@ -78,6 +84,8 @@ I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK      = 'I3DT_SCND_{}'
 I3DT_MAIN_TBBD_MARK = 'I3DT_MAIN_{}_TBBD_'
 I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
+I3DT_WINDOW_PREV = []
+I3DT_WINDOW_CURR = []
 
 # Workspaces to ignore.
 I3DT_WORKSPACE_IGNORE = []
@@ -87,9 +95,6 @@ if args.workspaces_only:
         I3DT_WORKSPACE_IGNORE.remove(w)
 elif args.workspaces_ignore:
     I3DT_WORKSPACE_IGNORE = args.workspaces_ignore
-
-previous_window = []
-current_window = []
 
 
 ###############################################################################
@@ -112,6 +117,95 @@ def execute_commands(commands, preamble='Executing:'):
             logging.debug('+ Command: {}'.format(commands))
     return []
 
+def get_container_id(container):
+    if isinstance(container, int):
+        con_id = container
+    else:
+        con_id = container.id
+    return con_id
+
+def get_container_descendants(container):
+    if isinstance(container, list):
+        descendants = container
+    else:
+        descendants = container.descendants()
+    return descendants
+
+# def is_leaf(con, con_list):
+#     is_leaf = False
+#     for c in parent.leaves():
+#         if c.id == con:
+#             is_leaf = True
+#             break
+#     return is_leaf
+
+def is_member(con, con_list):
+    index  = 0
+    member = False
+    con_id = get_container_id(con)
+    for c in con_list:
+        if c.id == con_id:
+            member = True
+            break
+        index += 1
+    return member, index
+
+def find_parent_container(container, ancestor):
+    parent = []
+    con_id = get_container_id(container)
+    descendants = get_container_descendants(ancestor)
+    for c in descendants:
+        for d in c.descendants():
+            if d.id == con_id:
+                parent = c
+    return parent
+
+def find_container_index(con, con_list):
+    ind = 0;
+    con_id = get_container_id(con)
+    for c in con_list:
+        if c.id == con_id:
+            break
+        ind += 1
+    return ind
+
+# def find_focused_index
+
+# Moves or gets a container (main or secondary) to or from the scratchpad.
+def container_toggle_show(i3, con_id, tree=[], focused=[], workspace=[]):
+
+    logging.debug('+ container_toggle_show')
+
+    command = []
+
+    # Get the container tree.
+    if not tree:
+        tree = i3.get_tree()
+
+    # Get the focused container.
+    if not focused:
+        focused = tree.find_focused()
+
+    # Get the focused workspace.
+    if not workspace:
+        workspace = focused.workspace()
+
+    # Check if the container is visible, that is, it is an descendant of the
+    # focused workspace.
+    is_visible = is_descendant(con_id, workspace)
+
+    # Toggle visibility.
+    if is_visible:
+        # If container is visible move it to the scratchpad.
+        command.append('[con_id={}] move scratchpad'.format(con_id))
+
+    else:
+        # If container is not visible move it to the focused workspace.
+        command.append('[con_id={}] scratchpad show'.format(con_id))
+
+    execute_commands(command)
+
+
 
 def i3dt_focus(i3, e):
 
@@ -120,8 +214,7 @@ def i3dt_focus(i3, e):
             .format(e.binding.command.replace('nop ', '', 1)))
 
     # Get focused window.
-    tree = i3.get_tree()
-    focused = tree.find_focused()
+    focused = i3.get_tree().find_focused()
     workspace = focused.workspace()
 
     key = workspace.name
@@ -134,32 +227,20 @@ def i3dt_focus(i3, e):
 
     command = []
     if action in ['next', 'prev']:
-
-        index = 0;
-        focused_index = []
-        windows = []
-        for c in workspace.leaves():
-            windows.append(c.id)
-            if c.id == focused.id:
-                focused_index = index
-            index += 1
-
-        if not focused_index:
-            if action == 'next':
-                command.append('[con_id={}] focus'\
-                        .format(windows[1 % len(windows)]))
-            elif action == 'prev':
-                command.append('[con_id={}] focus'\
-                        .format(windows[(len(windows) - 1) % len(windows)]))
-        else:
-            if action == 'next':
-                command.append('[con_id={}] focus'\
-                        .format(windows[(focused_index + 1) % len(windows)]))
-            elif action == 'prev':
-                command.append('[con_id={}] focus'\
-                        .format(windows[(focused_index - 1) % len(windows)]))
+        windows = workspace.leaves()
+        index = find_container_index(focused, windows)
+        if action == 'next':
+            command.append('[con_id={}] focus'\
+                    .format(windows[(index + 1) % len(windows)].id))
+        elif action == 'prev':
+            command.append('[con_id={}] focus'\
+                    .format(windows[(index - 1) % len(windows)].id))
         if is_fullscreen_mode:
             command.append('fullscreen toggle')
+
+    elif action == 'toggle':
+        command.append('[con_id={}] focus'\
+                .format(I3DT_WINDOW_PREV))
 
     elif action == 'other':
         if I3DT[key]['mode'] == 'i3dt':
@@ -192,12 +273,41 @@ def i3dt_move(i3, e):
     # Get the action.
     action = e.binding.command.split(" ")[-1]
 
-    if action == 'other':
+    main_mark = I3DT_MAIN_MARK.format(key)
+    main = workspace.find_marked(main_mark)
+    scnd_mark = I3DT_SCND_MARK.format(key)
+    scnd = tree.find_marked(scnd_mark)
+
+    if action == 'next':
+
+        if main:
+            main = main[0]
+        else:
+            main = workspace
+
+        main_children = main.leaves()
+        num_main_children = len(main_children)
+        if num_main_children < 2 and not scnd:
+            return
+
+        is_child, main_index = is_member(focused, main_children)
+        if is_child:
+            if main_index == num_main_children - 1:
+                if scnd:
+                    scnd_children = scnd[0].leaves()
+                else:
+                    if len(main_children) < 2:
+                        return
+                    # for 
+                    for i in range(1, num_main_children - 1):
+                        command.append('[con_id={}] move left'\
+                                .format(focused.id))
+            else:
+                command.append('[con_id={}] move right'\
+                        .format(focused.id))
+
+    elif action == 'other':
         # Check if focused is in the main container.
-        main_mark = I3DT_MAIN_MARK.format(key)
-        main = workspace.find_marked(main_mark)
-        scnd_mark = I3DT_SCND_MARK.format(key)
-        scnd = tree.find_marked(scnd_mark)
         if not main:
             return
         main_children = main[0].descendants()
@@ -1107,6 +1217,24 @@ def on_window_new(i3, e):
                             .format(window.id, scnd_mark))
                     break
 
+def on_window_focus(i3, e):
+
+    global I3DT_WINDOW_PREV
+    global I3DT_WINDOW_CURR
+
+    # Debug information.
+    logging.info('Window::Focus')
+
+    # Store container id.
+    I3DT_WINDOW_PREV = I3DT_WINDOW_CURR
+    I3DT_WINDOW_CURR = e.container.id
+
+    # Debug information.
+    logging.debug('+ Current window:\t{}'\
+            .format(I3DT_WINDOW_CURR))
+    logging.debug('+ Previous window:\t{}'\
+            .format(I3DT_WINDOW_PREV))
+
 
 def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
@@ -1131,9 +1259,9 @@ def on_binding(i3, e):
 
 i3 = i3ipc.Connection()
 try:
+    i3.on(Event.WINDOW_FOCUS, on_window_focus)
     i3.on(Event.WINDOW_NEW, on_window_new)
     i3.on(Event.BINDING, on_binding)
-    # i3.on("window::focus", on_window_focus)
     i3.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
     # i3.on(Event.WINDOW_CLOSE, on_window_close)
     # i3.on(Event.WINDOW_FOCUS, on_window_focus)
