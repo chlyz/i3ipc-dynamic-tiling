@@ -239,8 +239,13 @@ def i3dt_focus(i3, e):
             command.append('fullscreen toggle')
 
     elif action == 'toggle':
-        command.append('[con_id={}] focus'\
-                .format(I3DT_WINDOW_PREV))
+        if I3DT_WINDOW_PREV:
+            command.append('[con_id={}] focus'\
+                    .format(I3DT_WINDOW_PREV))
+            if is_fullscreen_mode:
+                command.append('fullscreen toggle')
+        else:
+            logging.warning('Window::Focus::Toggle::No previous window')
 
     elif action == 'other':
         if I3DT[key]['mode'] == 'i3dt':
@@ -249,6 +254,8 @@ def i3dt_focus(i3, e):
             command.append('focus parent, focus next')
             if is_fullscreen_mode:
                 command.append('fullscreen toggle')
+        else:
+            logging.warning('Window::Focus::Other::No other container')
 
     # Execute all commands.
     execute_commands(command)
