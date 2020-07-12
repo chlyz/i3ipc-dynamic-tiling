@@ -22,7 +22,7 @@ that temporarily moves all windows to the main container and enables the
 _tabbed_ layout, all the while remembering the tiling of the containers so that
 the workspace is recreated when the _tabbed_ mode is toggled.
 
-### `window::focus`
+### Focus
 
 Beyond the normal `i3` focus commands, the following are implemented:
 
@@ -36,7 +36,11 @@ Beyond the normal `i3` focus commands, the following are implemented:
 
 + `i3dt_focus toggle`: Toggle the focus between the last two focused windows.
 
-### `window::move`
+All focus commands in the list above respects the _fullscreen_ state of the
+focused window, that is, if the focused window is in _fullscreen_ then the
+focused window after the command will also be in _fullscreen_ mode.
+
+### Move
 
 Beyond the normal `i3` move commands, the following are implemented:
 
@@ -45,6 +49,13 @@ Beyond the normal `i3` move commands, the following are implemented:
 
 + `i3dt_move other`: If the focused window is in the main container then move
   the window to the secondary container and vice versa.
+
+### Monocle alternatives
+
+There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
+
++ _fullscreen_: It is possible to use the `i3` fullscreen mode to emulate the
+  _monocle_ mode if the focus commands described in (#Focus) is used.
 
 ## Status
 
