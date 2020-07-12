@@ -55,7 +55,7 @@ Beyond the normal `i3` move commands, the following are implemented:
 There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 + _fullscreen_: It is possible to use the `i3` fullscreen mode to emulate the
-  _monocle_ mode if the focus commands described in (#Focus) is used.
+  _monocle_ mode if the focus commands described in [Focus](#focus) is used.
 
 ## Status
 
