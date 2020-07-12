@@ -5,11 +5,6 @@ to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
 and [xmonad](https://xmonad.org/), while utilizing the strengths of
 [i3](https://i3wm.org/) and [sway](https://swaywm.org/).
 
-The code is heavily inspired by [budlabs
-i3ass](https://github.com/budlabs/i3ass) and I highly recommend the videos of
-[budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ) on my
-favourite youtube channel.
-
 ## Features
 
 The software creates a _main_ and a _secondary_ container dynamically similar
@@ -55,7 +50,24 @@ Beyond the normal `i3` move commands, the following are implemented:
 There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 + _fullscreen_: It is possible to use the `i3` fullscreen mode to emulate the
-  _monocle_ mode if the focus commands described in [Focus](#focus) is used.
+  _monocle_ mode if the focus commands described in [Focus](#focus) are used.
+  This is probably the fastest alternative, but the downside is that it is easy
+  to get lost.
+
++ _tabbed_: This package implements two different tabbed layouts:
+
+  + `i3dt_tabbed_toggle`: This version moves all windows to a main container
+    and then applies the tabbed layout. The operation is reversible and the
+    main and secondary containers are reproduced when toggled. This might be
+    the best alternative to the _monocle_ layout, but it can be slow for a
+    large number of windows on the workspace.
+
+  + `i3dt_tabbed_simple_toggle` (Needs a better name): This version keeps the
+    main and secondary containers but creates a global split container and
+    applies the tabbed layout on all containers. This means that there will be
+    two tab bars instead of one and therefore taking more screen real estate. I
+    do not find this as intuitive as the version described above, but it is
+    more in line with how `i3` works and may be faster.
 
 ## Status
 
