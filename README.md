@@ -5,6 +5,11 @@ to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
 and [xmonad](https://xmonad.org/), while utilizing the strengths of
 [i3](https://i3wm.org/) and [sway](https://swaywm.org/).
 
+The code is heavily inspired by [budlabs
+i3ass](https://github.com/budlabs/i3ass) and I highly recommend the videos of
+[budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ) on my
+favourite youtube channel.
+
 ## Features
 
 The software creates a _main_ and a _secondary_ container dynamically similar
@@ -17,6 +22,30 @@ that temporarily moves all windows to the main container and enables the
 _tabbed_ layout, all the while remembering the tiling of the containers so that
 the workspace is recreated when the _tabbed_ mode is toggled.
 
+### `window::focus`
+
+Beyond the normal `i3` focus commands, the following are implemented:
+
++ `i3dt_focus next/prev`: Focus the next window in the workspace with wrapping
+  at the boundaries. For example, if focus _next_ on the last window of the
+  workspace then the first window will be focused.
+
++ `i3dt_focus other`: If the focused window is in the main container then the
+  last window focused window in the secondary container will get focus and vice
+  versa.
+
++ `i3dt_focus toggle`: Toggle the focus between the last two focused windows.
+
+### `window::move`
+
+Beyond the normal `i3` move commands, the following are implemented:
+
++ `i3dt_move next/prev`: Move the window within the parent container, without
+  leaving the parent container.
+
++ `i3dt_move other`: If the focused window is in the main container then move
+  the window to the secondary container and vice versa.
+
 ## Status
 
 If someone actually, against all odds, find this code, here is a gently
@@ -25,8 +54,9 @@ _Ubuntu 18.04_ with _i3 4.18.1_. Features on the radar:
 
 - [x] `window::new`: New windows are created and managed in a _main_ and a
   _secondary_ container.
-- [ ] `window::move` (_Ongoing_): Windows can be moved but not yet ensured to
-  be handled dynamically.
+- [ ] `window::move` (_Ongoing_): Windows can be moved safely within the
+  workspace but movement to other workspaces are not yet ensured to be handled
+  dynamically.
 - [x] `window::focus`: Implement moving focus between windows as they where in
   a circular buffer, without having to consider the position and layout of the
   _main_ and _secondary_ containers.

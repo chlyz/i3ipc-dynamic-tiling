@@ -139,12 +139,22 @@ def get_container_descendants(container):
 #             break
 #     return is_leaf
 
-def is_member(con, con_list):
+def is_member_id(con, con_list):
     index  = 0
     member = False
     con_id = get_container_id(con)
     for c in con_list:
         if c.id == con_id:
+            member = True
+            break
+        index += 1
+    return member, index
+
+def is_member_mark(mark, mark_list):
+    index  = 0
+    member = False
+    for m in mark_list:
+        if m == mark:
             member = True
             break
         index += 1
@@ -206,6 +216,49 @@ def container_toggle_show(i3, con_id, tree=[], focused=[], workspace=[]):
     execute_commands(command)
 
 
+def get_scnd_position(workspace):
+
+    # Get list of all childrent.
+    children = workspace.descendants()
+
+    # Find the secondary container index.
+    scnd_position = None
+    scnd_mark = I3DT_SCND_MARK.format(workspace.name)
+    scnd = workspace.find_marked(scnd_mark)
+    if scnd:
+        scnd_member, scnd_index = is_member_id(scnd[0], children)
+
+        # Find the main container index.
+        main_mark = I3DT_MAIN_MARK.format(workspace.name)
+        main = workspace.find_marked(main_mark)
+        main_member, main_index = is_member_id(main[0], children)
+
+        # Find the orientation of the global container.
+        orientation = 'horizontal'
+        glbl_mark = I3DT_GLBL_MARK.format(workspace.name)
+        glbl = workspace.find_marked(glbl_mark)
+        if glbl:
+            orientation = glbl[0].orientation
+
+        # Determine the secondary container orientation relative the main
+        # container.
+        if orientation == 'horizontal':
+            if main_index < scnd_index:
+                scnd_position = 'right'
+            else:
+                scnd_position = 'left'
+        else:
+            if main_index < scnd_index:
+                scnd_position = 'below'
+            else:
+                scnd_position = 'above'
+
+    # Debug info.
+    logging.debug('Secondary position: {}'\
+            .format(scnd_position))
+
+    return scnd_position
+
 
 def i3dt_focus(i3, e):
 
@@ -260,6 +313,22 @@ def i3dt_focus(i3, e):
     # Execute all commands.
     execute_commands(command)
 
+    # bar_list = i3.get_bar_config_list()
+    # for b in bar_list:
+
+def get_movement(con, direction):
+    movement = None
+    if direction == 'next':
+        if con.layout in ['splith', 'tabbed']:
+            movement = 'right'
+        else:
+            movement = 'down'
+    elif direction == 'prev':
+        if con.layout in ['splith', 'tabbed']:
+            movement = 'left'
+        else:
+            movement = 'up'
+    return movement
 
 def i3dt_move(i3, e):
 
@@ -280,40 +349,31 @@ def i3dt_move(i3, e):
     # Get the action.
     action = e.binding.command.split(" ")[-1]
 
-    main_mark = I3DT_MAIN_MARK.format(key)
-    main = workspace.find_marked(main_mark)
-    scnd_mark = I3DT_SCND_MARK.format(key)
-    scnd = tree.find_marked(scnd_mark)
+    if action in ['next', 'prev']:
 
-    if action == 'next':
+        # Get the parent container and it's children.
+        parent = find_parent_container(focused, workspace)
+        if not parent:
+            parent = workspace
+        children = parent.leaves()
 
-        if main:
-            main = main[0]
-        else:
-            main = workspace
-
-        main_children = main.leaves()
-        num_main_children = len(main_children)
-        if num_main_children < 2 and not scnd:
-            return
-
-        is_child, main_index = is_member(focused, main_children)
-        if is_child:
-            if main_index == num_main_children - 1:
-                if scnd:
-                    scnd_children = scnd[0].leaves()
-                else:
-                    if len(main_children) < 2:
-                        return
-                    # for 
-                    for i in range(1, num_main_children - 1):
-                        command.append('[con_id={}] move left'\
-                                .format(focused.id))
-            else:
-                command.append('[con_id={}] move right'\
-                        .format(focused.id))
+        # Get the child index
+        if children:
+            movement = get_movement(parent, action)
+            if action == 'next':
+                if not focused.id == children[-1].id:
+                    command.append('move {}'.format(movement))
+            elif action == 'prev':
+                if not focused.id == children[0].id:
+                    command.append('move {}'.format(movement))
 
     elif action == 'other':
+
+        main_mark = I3DT_MAIN_MARK.format(key)
+        main = workspace.find_marked(main_mark)
+        scnd_mark = I3DT_SCND_MARK.format(key)
+        scnd = tree.find_marked(scnd_mark)
+
         # Check if focused is in the main container.
         if not main:
             return
