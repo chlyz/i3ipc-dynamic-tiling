@@ -116,11 +116,20 @@ focus_follows_mouse no
 workspace_auto_back_and_forth yes
 show_marks no
 
-# Focus next with cycling.
+# Focus next cycle.
 bindsym $mod+j nop i3dt_focus next
 
-# Focus previous with cycling.
+# Move next cycle.
+bindsym $mod+shift+j nop i3dt_move next
+
+# Focus previous in the same container.
 bindsym $mod+k nop i3dt_focus prev
+
+# Move next cycle.
+bindsym $mod+shift+k nop i3dt_move prev
+
+# Focus toggle container.
+bindsym $mod+i nop i3dt_focus toggle
 
 # Focus other container.
 bindsym $mod+o nop i3dt_focus other
@@ -128,11 +137,11 @@ bindsym $mod+o nop i3dt_focus other
 # Move other container.
 bindsym $mod+shift+o nop i3dt_move other
 
-# Toggle monocle tabbed mode.
-bindsym $mod+space nop i3dt_tabbed_toggle
+# Toggle simple tabbed mode.
+bindsym $mod+space nop i3dt_tabbed_simple_toggle
 
-# Toggle tabbed workspace split mode.
-bindsym $mod+shift+space nop i3dt_tabbed_simple_toggle
+# Toggle tabbed mode.
+bindsym $mod+shift+space nop i3dt_tabbed_toggle
 
 # Kill focused window.
 bindsym $mod+shift+q nop i3dt_kill
@@ -145,9 +154,6 @@ bindsym $mod+shift+backslash nop i3dt_mirror
 
 # Toggle workspace.
 bindsym $mod+Tab workspace back_and_forth
-
-# Toggle layout current container.
-bindsym $mod+semicolon layout toggle tabbed split
 ```
 
 ## Inspiration
