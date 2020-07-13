@@ -43,7 +43,11 @@ Beyond the normal `i3` move commands, the following are implemented:
   leaving the parent container.
 
 + `i3dt_move other`: If the focused window is in the main container then move
-  the window to the secondary container and vice versa.
+  the window to the secondary container and vice versa. The focus is kept
+  within the original container.
+
++ `i3dt_move swap`: Swap the focused window with the window in the focused
+  window in other container. The focus is kept within the original container.
 
 ### Monocle alternatives
 
@@ -51,23 +55,23 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 + _fullscreen_: It is possible to use the `i3` fullscreen mode to emulate the
   _monocle_ mode if the focus commands described in [Focus](#focus) are used.
-  This is probably the fastest alternative, but the downside is that it is easy
+  This is probably the fastest alternative with the downside is that it is easy
   to get lost.
 
 + _tabbed_: This package implements two different tabbed layouts:
 
-  + `i3dt_tabbed_toggle`: This version moves all windows to a main container
+  + `i3dt_monocle_toggle`: This version moves all windows to a main container
     and then applies the tabbed layout. The operation is reversible and the
     main and secondary containers are reproduced when toggled. This might be
-    the best alternative to the _monocle_ layout, but it can be slow for a
-    large number of windows on the workspace.
+    the most intuitive alternative to the _monocle_ layout, but it can be slow
+    when there is a large number of windows on the workspace.
 
-  + `i3dt_tabbed_simple_toggle` (Needs a better name): This version keeps the
-    main and secondary containers but creates a global split container and
-    applies the tabbed layout on all containers. This means that there will be
-    two tab bars instead of one and therefore taking more screen real estate. I
-    do not find this as intuitive as the version described above, but it is
-    more in line with how `i3` works and may be faster.
+  + `i3dt_tabbed_toggle`: This version keeps the main and secondary containers
+    but creates a global split container and applies the tabbed layout on all
+    containers. This means that there will be two tab bars instead of one and
+    therefore taking more screen real estate. I do not find this as intuitive
+    as the version described above, but it is more in line with `i3` workflow
+    and may be faster.
 
 ## Status
 
@@ -79,7 +83,7 @@ _Ubuntu 18.04_ with _i3 4.18.1_. Features on the radar:
   _secondary_ container.
 - [ ] `window::move` (_Ongoing_): Windows can be moved safely within the
   workspace but movement to other workspaces are not yet ensured to be handled
-  dynamically.
+  correctly.
 - [x] `window::focus`: Implement moving focus between windows as they where in
   a circular buffer, without having to consider the position and layout of the
   _main_ and _secondary_ containers.
