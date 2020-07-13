@@ -117,12 +117,98 @@ def execute_commands(commands, preamble='Executing:'):
             logging.debug('+ Command: {}'.format(commands))
     return []
 
-def get_container_id(container):
-    if isinstance(container, int):
-        con_id = container
-    else:
-        con_id = container.id
-    return con_id
+def get_workspace_info(i3, workspace=[]):
+
+    if not workspace:
+        tree = i3.get_tree()
+        focused = tree.find_focused()
+        workspace = focused.workspace()
+
+    # Initialize the dictionary.
+    key = workspace.name
+    main_mark = I3DT_MAIN_MARK.format(key)
+    scnd_mark = I3DT_SCND_MARK.format(key)
+    glbl_mark = I3DT_GLBL_MARK.format(key)
+    tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
+    info = {
+            'mode': 'manual',
+            'layout': workspace.layout,
+            'children': [],
+            'descendants': [],
+            'workspace': workspace.id,
+            'focused': None,
+            'fullscreen': False,
+            'unmanaged': [],
+            'glbl': { 'mark': glbl_mark, 'id': None, 'orientation': 'horizontal', 'layout': 'splith' },
+            'main': { 'mark': main_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [] },
+            'scnd': { 'mark': scnd_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [], 'position': 'right' },
+            'tbbd': { 'mark': tbbd_mark, 'indices': [], 'children': [] },
+            }
+
+    # Collect workspace information.
+    if not key in I3DT_WORKSPACE_IGNORE:
+        info['mode'] = 'tiled'
+
+    info['children'] = list(c.id for c in workspace.leaves())
+
+    main_index = None
+    scnd_index = None
+    for i, c in enumerate(workspace.descendants()):
+        marks = c.marks
+        info['descendants'].append(c.id)
+        if c.focused:
+            info['focused'] = c.id
+            info['fullscreen'] = c.fullscreen_mode
+        if glbl_mark in marks:
+            info['glbl']['id'] = c.id
+            info['glbl']['orientation'] = c.orientation
+            info['glbl']['layout'] = c.layout
+        elif main_mark in marks:
+            info['main']['id'] = c.id
+            if c.focus:
+                info['main']['focus'] = c.focus[0]
+            info['main']['layout'] = c.layout
+            info['main']['children'] = list(d.id for d in c.leaves())
+            main_index = i
+        elif scnd_mark in marks:
+            info['scnd']['id'] = c.id
+            if c.focus:
+                info['scnd']['focus'] = c.focus[0]
+            info['scnd']['layout'] = c.layout
+            info['scnd']['children'] = list(d.id for d in c.leaves())
+            scnd_index = i
+        else:
+            for m in marks:
+                if m.startswith(tbbd_mark):
+                    info['mode'] = 'monocle'
+                    info['tbbd']['indices'].append(int(m.split('_')[-1]))
+                    info['tbbd']['children'].append(c.id)
+                    break
+
+    # Find the secondary container position.
+    if main_index and scnd_index:
+        orientation = 'horizontal'
+        if info['glbl']['orientation']:
+            orientation = info['glbl']['orientation']
+        if orientation == 'horizontal':
+            if main_index < scnd_index:
+                info['scnd']['position'] = 'right'
+            else:
+                info['scnd']['position'] = 'left'
+        else:
+            if main_index < scnd_index:
+                info['scnd']['position'] = 'below'
+            else:
+                info['scnd']['position'] = 'above'
+
+    # Find unmanaged windows.
+    info['unmanaged'] = copy.deepcopy(info['children'])
+    for i in info['main']['children']:
+        info['unmanaged'].remove(i)
+    for i in info['scnd']['children']:
+        info['unmanaged'].remove(i)
+
+    return info
 
 def get_container_descendants(container):
     if isinstance(container, list):
@@ -130,17 +216,6 @@ def get_container_descendants(container):
     else:
         descendants = container.descendants()
     return descendants
-
-def is_member_id(con, con_list):
-    index  = 0
-    member = False
-    con_id = get_container_id(con)
-    for c in con_list:
-        if c.id == con_id:
-            member = True
-            break
-        index += 1
-    return member, index
 
 def is_member_mark(mark, mark_list):
     index  = 0
@@ -191,62 +266,11 @@ def get_movement(layout, direction):
     return movement
 
 
-def get_scnd_position(workspace):
-
-    # Get list of all childrent.
-    children = workspace.descendants()
-
-    # Find the secondary container index.
-    scnd_position = None
-    scnd_mark = I3DT_SCND_MARK.format(workspace.name)
-    scnd = workspace.find_marked(scnd_mark)
-    if scnd:
-        scnd_member, scnd_index = is_member_id(scnd[0], children)
-
-        # Find the main container index.
-        main_mark = I3DT_MAIN_MARK.format(workspace.name)
-        main = workspace.find_marked(main_mark)
-        main_member, main_index = is_member_id(main[0], children)
-
-        # Find the orientation of the global container.
-        orientation = 'horizontal'
-        glbl_mark = I3DT_GLBL_MARK.format(workspace.name)
-        glbl = workspace.find_marked(glbl_mark)
-        if glbl:
-            orientation = glbl[0].orientation
-
-        # Determine the secondary container orientation relative the main
-        # container.
-        if orientation == 'horizontal':
-            if main_index < scnd_index:
-                scnd_position = 'right'
-            else:
-                scnd_position = 'left'
-        else:
-            if main_index < scnd_index:
-                scnd_position = 'below'
-            else:
-                scnd_position = 'above'
-
-    # Debug info.
-    logging.debug('Secondary position: {}'\
-            .format(scnd_position))
-
-    return scnd_position
-
-
 def i3dt_focus(i3, e):
-
-    # Logging event.
     logging.info('Window::Focus::{}'\
             .format(e.binding.command.replace('nop ', '', 1)))
-
     action = e.binding.command.split(" ")[-1]
     info = get_workspace_info(i3)
-
-    # Get the action.
-
-    # Change focus.
     command = []
     if action in ['next', 'prev']:
         index = find_container_index(info)
@@ -900,98 +924,6 @@ def i3dt_kill(i3):
     execute_commands(command)
 
 
-def get_workspace_info(i3, workspace=[]):
-
-    if not workspace:
-        tree = i3.get_tree()
-        focused = tree.find_focused()
-        workspace = focused.workspace()
-
-    # Initialize the dictionary.
-    key = workspace.name
-    main_mark = I3DT_MAIN_MARK.format(key)
-    scnd_mark = I3DT_SCND_MARK.format(key)
-    glbl_mark = I3DT_GLBL_MARK.format(key)
-    tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
-    info = {
-            'mode': 'manual',
-            'layout': workspace.layout,
-            'children': [],
-            'descendants': [],
-            'workspace': workspace.id,
-            'focused': None,
-            'fullscreen': False,
-            'unmanaged': [],
-            'glbl': { 'mark': glbl_mark, 'id': None, 'orientation': 'horizontal', 'layout': 'splith' },
-            'main': { 'mark': main_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [] },
-            'scnd': { 'mark': scnd_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [], 'position': 'right' },
-            'tbbd': { 'mark': tbbd_mark, 'indices': [], 'children': [] },
-            }
-
-    # Collect workspace information.
-    if not key in I3DT_WORKSPACE_IGNORE:
-        info['mode'] = 'tiled'
-
-    info['children'] = list(c.id for c in workspace.leaves())
-
-    main_index = None
-    scnd_index = None
-    for i, c in enumerate(workspace.descendants()):
-        marks = c.marks
-        info['descendants'].append(c.id)
-        if c.focused:
-            info['focused'] = c.id
-            info['fullscreen'] = c.fullscreen_mode
-        if glbl_mark in marks:
-            info['glbl']['id'] = c.id
-            info['glbl']['orientation'] = c.orientation
-            info['glbl']['layout'] = c.layout
-        elif main_mark in marks:
-            info['main']['id'] = c.id
-            if c.focus:
-                info['main']['focus'] = c.focus[0]
-            info['main']['layout'] = c.layout
-            info['main']['children'] = list(d.id for d in c.leaves())
-            main_index = i
-        elif scnd_mark in marks:
-            info['scnd']['id'] = c.id
-            if c.focus:
-                info['scnd']['focus'] = c.focus[0]
-            info['scnd']['layout'] = c.layout
-            info['scnd']['children'] = list(d.id for d in c.leaves())
-            scnd_index = i
-        else:
-            for m in marks:
-                if m.startswith(tbbd_mark):
-                    info['mode'] = 'monocle'
-                    info['tbbd']['indices'].append(int(m.split('_')[-1]))
-                    info['tbbd']['children'].append(c.id)
-                    break
-
-    # Find the secondary container position.
-    if main_index and scnd_index:
-        orientation = 'horizontal'
-        if info['glbl']['orientation']:
-            orientation = info['glbl']['orientation']
-        if orientation == 'horizontal':
-            if main_index < scnd_index:
-                info['scnd']['position'] = 'right'
-            else:
-                info['scnd']['position'] = 'left'
-        else:
-            if main_index < scnd_index:
-                info['scnd']['position'] = 'below'
-            else:
-                info['scnd']['position'] = 'above'
-
-    # Find unmanaged windows.
-    info['unmanaged'] = copy.deepcopy(info['children'])
-    for i in info['main']['children']:
-        info['unmanaged'].remove(i)
-    for i in info['scnd']['children']:
-        info['unmanaged'].remove(i)
-
-    return info
 
 def on_workspace_focus(i3, e):
 
@@ -1002,12 +934,7 @@ def on_workspace_focus(i3, e):
             .format(e.current.name))
 
     # Parse workspace.
-    t0 = time.time()
     info = get_workspace_info(i3, e.current)
-    t1 = time.time()
-    print(info)
-    print('Time: {}'.format(t1 - t0))
-
 
     key = e.current.name
     tree = i3.get_tree()
@@ -1026,7 +953,7 @@ def on_workspace_focus(i3, e):
             elif info['main']['id']:
                 mark = info['main']['mark']
                 command.append('[con_id={}] focus'\
-                        .format(info['scnd']['children'][-1]))
+                        .format(info['main']['children'][-1]))
             if mark:
                 for i in info['unmanaged']:
                     command.append('[con_id={}] move to mark {}'\
