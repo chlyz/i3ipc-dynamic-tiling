@@ -82,7 +82,6 @@ I3DT_SCND_LAYOUT    = dict()
 I3DT_GLBL_MARK      = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK      = 'I3DT_SCND_{}'
-I3DT_MAIN_TBBD_MARK = 'I3DT_MAIN_{}_TBBD_'
 I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
 I3DT_WINDOW_PREV = []
 I3DT_WINDOW_CURR = []
@@ -408,25 +407,6 @@ def i3dt_execute(i3, e):
         command.append('[con_id={}] focus'\
                 .format(info['scnd']['children'][-1]))
     execute_commands(command)
-
-def i3dt_create_container(i3, window, workspace, mark):
-
-    global I3DT
-
-    logging.info('Container::New')
-
-    # Create a temporary container.
-    execute_commands('open, mark I3DT_TEMP, split v, layout splitv')
-
-    # Move the window to the temporary container.
-    execute_commands('[con_id={}] floating disable, move to mark I3DT_TEMP'.format(window.id))
-
-    # Create the parent container.
-    execute_commands('[con_mark=I3DT_TEMP] focus, focus parent')
-    execute_commands('mark {}'.format(mark))
-
-    # Kill the temporary container.
-    execute_commands('[con_mark=I3DT_TEMP] kill')
 
 
 def i3dt_tabbed_toggle(i3):
@@ -876,31 +856,11 @@ def on_workspace_focus(i3, e):
 #         execute_commands(command)
 
 def on_window_new(i3, e):
-
-    global I3DT
-
     logging.info('Window::New')
-
     info = get_workspace_info(i3)
-    print(info)
 
-    if info['mode'] == 'manual':
+    if info['mode'] == 'manual' or len(info['children']) < 2:
         return
-
-    # Get the basic i3 state information.
-    tree = i3.get_tree()
-    window = tree.find_focused()
-    workspace = window.workspace()
-
-    # Initialize the I3DT default dictionary.
-    key = workspace.name
-
-    # Exit if the the number of application windows are too low.
-    if len(info['children']) < 2:
-        return
-
-    # Parse the secondary container.
-    scnd = workspace.find_marked(info['scnd']['mark'])
 
     # Create the main container.
     command = []
@@ -924,10 +884,10 @@ def on_window_new(i3, e):
             # the main container.
             info = get_workspace_info(i3)
             if info['glbl']['id']:
-                logging.debug('NO GLOBAL')
                 execute_commands('[con_id={}] move to mark {}'\
                         .format(info['scnd']['id'], info['glbl']['mark']))
             else:
+                logging.warning('NOT YET IMPLEMENTED')
                 logging.debug('POTENTIAL GLOBAL')
             #     parent = find_parent_id(info['main']['id'], info)
             #     print(parent)
