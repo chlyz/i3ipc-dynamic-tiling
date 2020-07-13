@@ -347,23 +347,16 @@ def i3dt_move(i3, e):
                 command.append('[con_id={}] focus, focus child'\
                         .format(info['main']['id']))
             else:
-                if info['main']['layout'] in ['splith', 'tabbed']:
-                    command.append('move down')
+                if info['glbl']['id']:
+                    command.append('move to mark {}, splitv'\
+                            .format(info['glbl']['mark']))
                 else:
-                    command.append('move right')
-                if info['glbl']['id']:
-                    if info['glbl']['orientation'] == 'vertical':
+                    if info['main']['layout'] in ['splith', 'tabbed']:
                         command.append('move down')
-                    else:
-                        command.append('move right')
-                command.append('move right')
-                if info['glbl']['id']:
                     command.append('move right')
                 command = execute_commands(command)
                 info = get_workspace_info(i3)
                 create_split_container(i3, info['focused'], info['scnd']['mark'])
-                # Make sure that the secondary container is on the same level as
-                # the main container.
                 info = get_workspace_info(i3)
                 if info['glbl']['id']:
                     execute_commands('[con_id={}] move to mark {}'\
