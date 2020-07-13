@@ -46,8 +46,8 @@ Beyond the normal `i3` move commands, the following are implemented:
   the window to the secondary container and vice versa. The focus is kept
   within the original container.
 
-+ `i3dt_move swap`: Swap the focused window with the window in the focused
-  window in other container. The focus is kept within the original container.
++ `i3dt_move swap`: Swap the focused window with the focused window in other
+  container. The focus is kept within the original container.
 
 ### Monocle alternatives
 
@@ -158,17 +158,20 @@ bindsym $mod+shift+k nop i3dt_move prev
 # Focus toggle container.
 bindsym $mod+i nop i3dt_focus toggle
 
-# Focus other container.
+# Focus the other container.
 bindsym $mod+o nop i3dt_focus other
 
-# Move other container.
+# Move to the other container.
 bindsym $mod+shift+o nop i3dt_move other
 
+# Swap window with the other container.
+bindsym $mod+Return nop i3dt_move swap
+
 # Toggle simple tabbed mode.
-bindsym $mod+space nop i3dt_tabbed_simple_toggle
+bindsym $mod+space nop i3dt_tabbed_toggle
 
 # Toggle tabbed mode.
-bindsym $mod+shift+space nop i3dt_tabbed_toggle
+bindsym $mod+shift+space nop i3dt_monocle_toggle
 
 # Kill focused window.
 bindsym $mod+shift+q nop i3dt_kill
@@ -181,6 +184,9 @@ bindsym $mod+shift+backslash nop i3dt_mirror
 
 # Toggle workspace.
 bindsym $mod+Tab workspace back_and_forth
+
+# Toggle layout current container.
+bindsym $mod+semicolon layout toggle tabbed split
 ```
 
 ## Inspiration
