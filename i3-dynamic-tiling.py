@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import asyncio
 import i3ipc
 from i3ipc import Event
-import os
 import time
 import argparse
 import logging
@@ -77,8 +75,6 @@ logging.basicConfig(
 
 I3DT                = dict()
 I3DT_LAYOUT         = dict()
-I3DT_MAIN_LAYOUT    = dict()
-I3DT_SCND_LAYOUT    = dict()
 I3DT_GLBL_MARK      = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK      = 'I3DT_SCND_{}'
@@ -454,6 +450,11 @@ def i3dt_execute(i3, e):
         if info['scnd']['id']:
             command.append('[con_id={}] focus'\
                     .format(info['scnd']['children'][-1]))
+        elif info['mode'] == 'monocle':
+            logging.debug('Monocle focus last')
+            if info['tbbd']['children']:
+                command.append('[con_id={}] focus'\
+                        .format(info['tbbd']['children'][-1]))
         else:
             command.append('[con_id={}] focus'\
                     .format(info['main']['id']))
@@ -515,11 +516,10 @@ def i3dt_tabbed_toggle(i3):
 def i3dt_monocle_toggle(i3, e):
 
     global I3DT_LAYOUT
-    global I3DT_MAIN_LAYOUT
-    global I3DT_SCND_LAYOUT
-    logging.info('Workspace::Monocle')
-    info = get_workspace_info(i3)
 
+    logging.info('Workspace::Monocle')
+
+    info = get_workspace_info(i3)
     if info['mode'] == 'manual' or not info['main']['id']:
         return
 
@@ -722,7 +722,8 @@ def on_window_new(i3, e):
     logging.info('Window::New')
     info = get_workspace_info(i3)
 
-    if info['mode'] == 'manual' or len(info['children']) < 2:
+    if info['mode'] == 'manual' \
+            or len(info['children']) < 2:
         return
 
     # Create the main container.
@@ -732,7 +733,14 @@ def on_window_new(i3, e):
         create_container(i3, 'main', children[0])
         create_container(i3, 'scnd', children[1])
     elif not info['scnd']['id']:
-        create_container(i3, 'scnd')
+        if info['mode'] == 'monocle':
+            index = 0
+            if info['tbbd']['indices']:
+                index = max(info['tbbd']['indices']) + 1
+            execute_commands('mark {}'\
+                    .format(info['tbbd']['mark'] + str(index)))
+        else:
+            create_container(i3, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
             execute_commands('[con_id={}] move to mark {}'\
