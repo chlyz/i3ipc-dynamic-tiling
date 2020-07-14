@@ -451,10 +451,8 @@ def i3dt_execute(i3, e):
             command.append('[con_id={}] focus'\
                     .format(info['scnd']['children'][-1]))
         elif info['mode'] == 'monocle':
-            logging.debug('Monocle focus last')
-            if info['tbbd']['children']:
-                command.append('[con_id={}] focus'\
-                        .format(info['tbbd']['children'][-1]))
+            command.append('[con_id={}] focus'\
+                    .format(info['children'][-1]))
         else:
             command.append('[con_id={}] focus'\
                     .format(info['main']['id']))
@@ -594,16 +592,21 @@ def i3dt_monocle_toggle(i3, e):
             info['main']['children'].remove(c)
             command.append('[con_id={}] unmark'.format(c))
 
+        # Make sure that the main container is not empty.
+        if not info['main']['children']:
+            info['main']['children'].append(info['scnd']['children'].pop(0))
+
         # Move as few windows as possible.
         target = 'scnd' if len(info['main']['children'])\
                 > len(info['scnd']['children']) else 'main'
 
         # Create container and move all windows.
-        create_container(i3, target, info[target]['children'].pop(0))
-        for c in info[target]['children']:
-            command.append('[con_id={}] move to mark {}'\
-                .format(c, info[target]['mark']))
-        command = execute_commands(command, '')
+        if info[target]['children']:
+            create_container(i3, target, info[target]['children'].pop(0))
+            for c in info[target]['children']:
+                command.append('[con_id={}] move to mark {}'\
+                    .format(c, info[target]['mark']))
+            command = execute_commands(command, '')
 
         # Reapply the container layouts.
         info = get_workspace_info(i3)
