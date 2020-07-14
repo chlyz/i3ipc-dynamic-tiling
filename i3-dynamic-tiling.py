@@ -131,10 +131,11 @@ def get_workspace_info(i3, workspace=[]):
     tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
     info = {
             'mode': 'manual',
+            'name': workspace.name,
             'layout': workspace.layout,
             'children': [],
             'descendants': [],
-            'workspace': workspace.id,
+            'id': workspace.id,
             'focused': None,
             'fullscreen': False,
             'unmanaged': [],
@@ -209,6 +210,27 @@ def get_workspace_info(i3, workspace=[]):
 
     return info
 
+def restore_container_layout(key, info):
+    global I3DT_LAYOUT
+    command = ''
+    if info[key]['id']:
+        if not key in I3DT_LAYOUT[info['name']]:
+            I3DT_LAYOUT[info['name']][key] = 'splitv'
+        if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
+            command = '[con_id={}] layout {}'\
+                    .format(info[key]['children'][0],
+                        I3DT_LAYOUT[info['name']][key])
+    return command
+
+def save_container_layout(key, info):
+    global I3DT_LAYOUT
+    command = ''
+    if info[key]['id']:
+        I3DT_LAYOUT[info['name']][key] = info[key]['layout']
+        command = '[con_id={}] layout tabbed'\
+                .format(info[key]['children'][0])
+    return command
+
 def find_parent_id(con_id, info):
     parent = None
     containers = (c for c in info['descendants'] if not c.name)
@@ -219,19 +241,71 @@ def find_parent_id(con_id, info):
                 break
     return parent
 
-def create_split_container(i3, con_id, mark):
+def create_container(i3, target, con_id=None):
+
+    # Get workspace information.
     info = get_workspace_info(i3)
-    parent = find_parent_id(con_id, info)
-    if not parent:
-        execute_commands('[con_id={}] focus, splitv'\
-                .format(con_id))
+
+    logging.debug('Create container: {}'.format(target))
+
+    # Exit if container already exists.
+    command = []
+    if info[target]['id']:
+        # Rename the existing container or exit.
+        if target == 'main' and info['mode'] == 'monocle':
+            command.append('[con_id={}] unmark {}'\
+                    .format(info['main']['id'], info['main']['mark']))
+            command.append('[con_id={}] mark {}'\
+                    .format(info['main']['id'], info['scnd']['mark']))
+            command = execute_commands(command, '')
+            info = get_workspace_info(i3)
+        else:
+            raise ValueError('Container already exist!')
+
+    # Get the window that should be contained and make sure it is focused.
+    focused = info['focused']
+    if not con_id:
+        con_id = focused
     else:
-        logging.warning('Not yet supported!')
+        command.append('[con_id={}] focus'.format(con_id))
+
+    # Remove any marks that may exist.
+    command.append('[con_id={}] unmark'.format(con_id))
+
+    # Move the window outside any other container.
+    other = 'main' if target == 'scnd' else 'scnd'
+    if con_id in info[other]['children']:
+        if info['glbl']['id']:
+            command.append('move to mark {}, splitv'\
+                    .format(info['glbl']['mark']))
+        else:
+            if info[other]['layout'] in ['splith', 'tabbed']:
+                command.append('move down')
+            if target == 'main':
+                command.append('move left, splitv')
+            else:
+                command.append('move right, splitv')
+    else:
+        command.append('splitv')
+    command = execute_commands(command, '')
+
+    # Find and mark the newly created split container.
     info = get_workspace_info(i3)
     parent = find_parent_id(con_id, info)
-    if mark:
-        execute_commands('[con_id={}] mark {}'\
-                .format(parent, mark))
+    command.append('[con_id={}] mark {}'\
+            .format(parent, info[target]['mark']))
+
+    # Make sure that the newly created container is in the global split
+    # container.
+    if info['glbl']['id']:
+        command.append('[con_id={}] move to mark {}'\
+                .format(parent, info['glbl']['mark']))
+
+    # Revert the change of focus.
+    if con_id != focused:
+        command.append('[con_id={}] focus'.format(focused))
+
+    command = execute_commands(command, '')
 
 def find_parent_container(info):
     parent = None
@@ -347,20 +421,7 @@ def i3dt_move(i3, e):
                 command.append('[con_id={}] focus, focus child'\
                         .format(info['main']['id']))
             else:
-                if info['glbl']['id']:
-                    command.append('move to mark {}, splitv'\
-                            .format(info['glbl']['mark']))
-                else:
-                    if info['main']['layout'] in ['splith', 'tabbed']:
-                        command.append('move down')
-                    command.append('move right')
-                command = execute_commands(command)
-                info = get_workspace_info(i3)
-                create_split_container(i3, info['focused'], info['scnd']['mark'])
-                info = get_workspace_info(i3)
-                if info['glbl']['id']:
-                    execute_commands('[con_id={}] move to mark {}'\
-                            .format(info['scnd']['id'], info['glbl']['mark']))
+                create_container(i3, 'scnd')
         else:
             command.append('[con_id={}] focus'\
                     .format(info['main']['children'][-1]))
@@ -404,10 +465,11 @@ def i3dt_execute(i3, e):
 
 def i3dt_tabbed_toggle(i3):
 
+    global I3DT_LAYOUT
     logging.info('Workspace::Tabbed')
-
-    # Get tree information.
     info = get_workspace_info(i3)
+
+    # Exit if workspace should not be handled.
     if info['mode'] == 'manual':
         return
 
@@ -422,17 +484,12 @@ def i3dt_tabbed_toggle(i3):
 
         # Recreate the layouts of the individual containers.
         for k in ['main', 'scnd']:
-            if info[k]['id']:
-                if not k in I3DT_LAYOUT:
-                    I3DT_LAYOUT[k] = 'splitv'
-                if info[k]['layout'] != I3DT_LAYOUT[k]:
-                    command.append('[con_id={}] layout {}'\
-                            .format(info[k]['children'][0], I3DT_LAYOUT[k]))
+            command.append(restore_container_layout(k, info))
 
         # Execute command chain.
         execute_commands(command, 'Disable:')
 
-    else:
+    elif info['mode'] == 'tiled':
 
         # Toggle the split of the secondary container.
         if info['scnd']['id']:
@@ -441,10 +498,7 @@ def i3dt_tabbed_toggle(i3):
 
         # Store the layouts of the individual containers.
         for k in ['main', 'scnd']:
-            if info[k]['id']:
-                I3DT_LAYOUT[k] = info[k]['layout']
-                command.append('[con_id={}] layout tabbed'\
-                        .format(info[k]['children'][0]))
+            command.append(save_container_layout(k, info))
 
         # Execute command chain.
         execute_commands(command, 'Enable:')
@@ -457,234 +511,104 @@ def i3dt_tabbed_toggle(i3):
                     .format(glbl, info['glbl']['mark']), '')
 
 
+
 def i3dt_monocle_toggle(i3, e):
 
+    global I3DT_LAYOUT
     global I3DT_MAIN_LAYOUT
     global I3DT_SCND_LAYOUT
-
     logging.info('Workspace::Monocle')
     info = get_workspace_info(i3)
-    command = []
 
-    # Check if workspace should be handled.
-    if info['mode'] == 'manual':
+    if info['mode'] == 'manual' or not info['main']['id']:
         return
 
+    # Toggle monocle mode.
+    command = []
     if info['mode'] == 'tiled':
-        logging.debug('Tabbed enable:')
-        if info['main']['id']:
-            # Store main layout and focused window id.
+
+        # Store the layout of the main container.
+        if info['glbl']['layout'] != 'tabbed':
+            I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
+
+        # No secondary container: change the layout of the main
+        # container.
+        if not info['scnd']['id']:
+            command.append('[con_id={}] layout tabbed'\
+                    .format(info['main']['focus']))
+        else:
+            # Store the layout of the secondary container.
             if info['glbl']['layout'] != 'tabbed':
-                I3DT_MAIN_LAYOUT[key] = info['main']['layout']
-            main_focused_id = info['main']['focus']
+                I3DT_LAYOUT[info['name']]['scnd'] = info['scnd']['layout']
 
-            # No secondary container: change the layout of the main
-            # container.
-            if not info['scnd']['id']:
-                command.append('[con_id={}] layout tabbed'\
-                        .format(main_focused_id))
+            # Mark all windows in the secondary container.
+            for i, c in enumerate(info['scnd']['children']):
+                command.append('[con_id={}] mark {}'\
+                        .format(c, info['tbbd']['mark'] + str(i)))
+
+            # Move as few windows as possible.
+            source = 'scnd'
+            target = 'main'
+            if len(info['scnd']['children'])\
+                    > len(info['main']['children']):
+                source = 'main'
+                target = 'scnd'
+
+            # Move the source windows to the target container.
+            children = info[source]['children']
+            if target == 'scnd':
+                command.append('[con_id={}] focus'\
+                        .format(info['scnd']['children'][0]))
+                command.append('[con_id={}] focus, move to mark {}'\
+                            .format(children.pop(0), info['scnd']['mark']))
+                command.append('move {}'\
+                        .format(get_movement(info['scnd']['layout'], 'prev')))
             else:
-                # Store the layout and the focused window of the secondary
-                # container.
-                if info['glbl']['layout'] != 'tabbed':
-                    I3DT_SCND_LAYOUT[key] = info['scnd']['layout']
-                scnd_focused = info['scnd']['focus']
+                command.append('[con_id={}] focus'\
+                        .format(info['main']['children'][-1]))
+                children.reverse()
+            for c in children:
+                command.append('[con_id={}] move to mark {}'\
+                        .format(c, info[target]['mark']))
 
-                # Mark all windows in the secondary container.
-                for i, c in enumerate(info['scnd']['children']):
-                    command.append('[con_id={}] mark {}'\
-                            .format(c.id, tbbd_mark + str(i)))
+            # Change the mark if necessary.
+            if target == 'scnd':
+                command.append('[con_id={}] unmark {}'\
+                        .format(info['scnd']['id'], info['scnd']['mark']))
+                command.append('[con_id={}] mark {}'\
+                        .format(info['scnd']['id'], info['main']['mark']))
 
-                # Move as few windows as possible.
-                if len(info['scnd']['children'])\
-                        > len(info['main']['children']):
-                    # Move all main windows to the secondary container and
-                    # rename the container. The first child of the main
-                    # container is moved below the first child of the second
-                    # container and then moved up in the list.
-                    command.append('[con_id={}] focus'\
-                            .format(info['scnd']['children'][0]))
-                    main_first_child = info['main']['children'].pop(0)
-                    command.append('[con_id={}] focus, move to mark {}'\
-                                .format(main_first_child.id, scnd_mark))
-                    if scnd.layout in ['splith', 'tabbed']:
-                        command.append('move left')
-                    else:
-                        command.append('move up')
-
-                    # Move the rest of the children.
-                    for c in info['main']['children']:
-                        command.append('[con_id={}] move to mark {}'\
-                                .format(c.id, scnd_mark))
-                    command.append('[con_id={}] focus'\
-                            .format(main_focused_id))
-
-                    # Remove and add mark to the secondary, now the main,
-                    # container.
-                    command.append('[con_id={}] unmark {}'\
-                            .format(scnd.id, scnd_mark))
-                    command.append('[con_id={}] mark {}'\
-                            .format(scnd.id, info['main']['mark']))
-
-                    # Focus the right window.
-                    command.append('[con_id={}] focus'\
-                            .format(focused.id))
-
-                else:
-                    # Focus the right window.
-                    command.append('[con_id={}] focus'\
-                            .format(info['main']['children'][-1].id))
-                    # Move all secondary windows to the main container. This is
-                    # done in reverse due to the fact that i3 always puts the
-                    # windows after the focused container, and thus implicitly
-                    # reversing the order.
-                    move_commands = []
-                    for i, c in enumerate(info['scnd']['children']):
-                        move_commands.append('[con_id={}] move to mark {}'\
-                                .format(c.id, info['main']['mark']))
-                    move_commands.reverse()
-                    command.extend(move_commands)
-
-                    # Focus the right window.
-                    command.append('[con_id={}] focus'\
-                            .format(focused.id))
-
-                if not scnd.layout == 'tabbed':
-                    command.append('layout tabbed')
+            # Focus the correct window and make tabbed.
+            command.append('[con_id={}] focus'\
+                    .format(info['focused']))
+            if not info[target]['layout'] == 'tabbed':
+                command.append('layout tabbed')
 
     elif info['mode'] == 'monocle':
 
-        logging.debug('Tabbed disable:')
+        focused = info['focused']
 
-        # Exit if there is no main container.
-        if not main:
-            return
-
-        # Find all windows that should be in the main and the secondary
-        # container, respectively.
-        main = main[0]
-
-        # Find all windows that should be in the secondary container.
-        if not info['scnd']['children']:
-            if not key in I3DT_MAIN_LAYOUT:
-                I3DT_MAIN_LAYOUT[key] = 'splitv'
-            if not glbl_tabbed:
-                command.append('[con_id={}] layout {}'\
-                        .format(info['main']['children'][0].id, I3DT_MAIN_LAYOUT[key]))
-            execute_commands(command, '')
-            return
-        else:
-            for c in info['scnd']['children']:
-                info['main']['children'].remove(c)
-
-
+        # Parse the children.
+        info['scnd']['children'] = info['tbbd']['children']
+        for c in info['scnd']['children']:
+            info['main']['children'].remove(c)
+            command.append('[con_id={}] unmark'.format(c))
 
         # Move as few windows as possible.
-        if len(info['scnd']['children']) > len(info['main']['children']):
-            scnd = main
+        target = 'scnd' if len(info['main']['children'])\
+                > len(info['scnd']['children']) else 'main'
 
-            # Create a temporary split container for the first window with the
-            # purpose to be the new main container.
-            # TODO: Generalize the left movement to handle moved windows.
-            child = info['main']['children'].pop(0)
-            command.append('[con_id={}] focus, move left, splitv'\
-                    .format(child.id))
+        # Create container and move all windows.
+        create_container(i3, target, info[target]['children'].pop(0))
+        for c in info[target]['children']:
+            command.append('[con_id={}] move to mark {}'\
+                .format(c, info[target]['mark']))
+        command = execute_commands(command, '')
 
-            # Reset the container layout only if not in global tabbed mode.
-            if not glbl_tabbed:
-                if not key in I3DT_MAIN_LAYOUT:
-                    I3DT_MAIN_LAYOUT[key] = 'splitv'
-                command.append('layout {}'\
-                    .format(I3DT_MAIN_LAYOUT[key]))
-            else:
-                command.append('layout tabbed')
-
-            # Find the temporary split container.
-            command = execute_commands(command, '')
-            main_container = []
-            logging.debug('+ Search after the main container')
-            for c in i3.get_tree().find_by_id(workspace.id).descendants():
-                for d in c.descendants():
-                    if d.id == child.id:
-                        main_container = c
-
-            # Mark the main container.
-            command.append('[con_id={}] mark {}'\
-                        .format(main_container.id, info['main']['mark']))
-
-            # Move the new split container into the global container.
-            if glbl:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(main_container.id, info['glbl']['mark']))
-                if glbl[0].orientation == 'vertical':
-                    command.append('[con_id={}] swap container with con_id {}'\
-                            .format(main_container.id, scnd.id))
-
-            # Move the remaining children to the main container.
-            for c in info['main']['children']:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(c.id, info['main']['mark']))
-
-            # Mark the secondary container.
-            command.append('[con_id={}] mark {}'\
-                        .format(scnd.id, scnd_mark))
-
-            # Apply the stored layout to the secondary container.
-            if not glbl_tabbed:
-                if not key in I3DT_SCND_LAYOUT:
-                    I3DT_SCND_LAYOUT[key] = 'splitv'
-                command.append('[con_id={}] layout {}'\
-                        .format(info['scnd']['children'][0].id, I3DT_SCND_LAYOUT[key]))
-        else:
-            # Create a temporary split container for the last window with the
-            # purpose to be the new scnd container.
-            # TODO: Generalize the right movement to handle moved windows.
-            child = info['scnd']['children'].pop(-1)
-            command.append('[con_id={}] focus, move right, splitv'\
-                    .format(child.id))
-
-            # Reset the container layout only if not in global tabbed mode.
-            if not glbl_tabbed:
-                if not key in I3DT_SCND_LAYOUT:
-                    I3DT_SCND_LAYOUT[key] = 'splitv'
-                command.append('layout {}'\
-                    .format(I3DT_SCND_LAYOUT[key]))
-            else:
-                command.append('layout tabbed')
-
-            # Find the temporary split container.
-            command = execute_commands(command)
-            logging.debug('+ Search after the secondary container')
-            scnd = []
-            for c in i3.get_tree().find_by_id(workspace.id).descendants():
-                for d in c.descendants():
-                    if d.id == child.id:
-                        scnd = c
-
-            # Move the new split container into the global container.
-            if glbl:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(scnd.id, info['glbl']['mark']))
-
-            # Mark the scnd container.
-            command.append('[con_id={}] mark {}'\
-                        .format(scnd.id, scnd_mark))
-
-            # Move the remaining children to the scnd container.
-            for c in info['scnd']['children']:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(c.id, scnd_mark))
-
-            # Apply the stored layout to the main container.
-            if not glbl_tabbed:
-                if not key in I3DT_MAIN_LAYOUT:
-                    I3DT_MAIN_LAYOUT[key] = 'splitv'
-                command.append('[con_id={}] layout {}'\
-                        .format(info['main']['children'][0].id, I3DT_MAIN_LAYOUT[key]))
-
-        # Focus the right container.
-        command.append('[con_id={}] focus'\
-                .format(focused.id))
+        # Reapply the container layouts.
+        info = get_workspace_info(i3)
+        for k in ['main', 'scnd']:
+            command.append(restore_container_layout(k, info))
 
     # Execute the command chain.
     execute_commands(command, '')
@@ -761,12 +685,14 @@ def i3dt_kill(i3):
 
 
 def on_workspace_focus(i3, e):
-    logging.info('Workspace::Focus::{}'\
-            .format(e.current.name))
+    global I3DT_LAYOUT
+    logging.info('Workspace::Focus::{}'.format(e.current.name))
     info = get_workspace_info(i3, e.current)
     command = []
-    if not info['mode'] == 'manual':
 
+    if not info['mode'] == 'manual':
+        if info['name'] not in I3DT_LAYOUT:
+            I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
         if info['unmanaged']:
             mark = None
             if info['scnd']['id']:
@@ -783,70 +709,14 @@ def on_workspace_focus(i3, e):
                             .format(i, mark))
             elif len(info['children']) > 1:
                 children = info['children']
-                create_split_container(i3, children[0], info['main']['mark'])
-                create_split_container(i3, children[1], info['scnd']['mark'])
+                create_container(i3, 'main', children[0])
+                create_container(i3, 'scnd', children[1])
                 info = get_workspace_info(i3)
+                for i in info['unmanaged']:
+                    command.append('[con_id={}] move to mark {}'\
+                            .format(i, info['scnd']['mark']))
+    execute_commands(command)
 
-
-        # windows = info['children']
-
-        # # Create the main container.
-        # if not info['main']['id'] and len(info['children']) > 1:
-        #     window = windows.pop(0)
-        #     execute_commands('[con_id={}] focus, splitv'.format(window.id), 'Create main container:')
-        #     workspace = i3.get_tree().find_focused().workspace()
-        #     main_container = []
-        #     for c in workspace.descendants():
-        #         for d in c.descendants():
-        #             if d.id == window.id:
-        #                 main_container = c
-        #                 break
-        #         if main_container:
-        #             break
-        #     execute_commands('[con_id={}] mark {}'\
-        #             .format(main_container.id, main_mark), '')
-
-#         # Create the secondary container.
-#         window = windows.pop(0)
-#         execute_commands('[con_id={}] focus, splitv'.format(window.id), 'Create secondary container:')
-#         workspace = i3.get_tree().find_focused().workspace()
-#         scnd_container = []
-#         for c in workspace.descendants():
-#             for d in c.descendants():
-#                 if d.id == window.id:
-#                     scnd_container = c
-#                     break
-#             if scnd_container:
-#                 break
-#         command = []
-#         command.append('[con_id={}] mark {}'\
-#                 .format(scnd_container.id, scnd_mark))
-#         for c in windows:
-#             command.append('[con_id={}] move to mark {}'\
-#                     .format(c.id, scnd_mark))
-#         execute_commands(command, '')
-
-#     else:
-#         # Find unmanaged windows.
-#         unmanaged_windows = workspace.leaves()
-#         main = workspace.find_marked(main_mark)
-#         if main:
-#             for c in main[0].leaves():
-#                 unmanaged_windows.remove(c)
-#         scnd = workspace.find_marked(scnd_mark)
-#         if scnd:
-#             for c in scnd[0].leaves():
-#                 unmanaged_windows.remove(c)
-
-#         # Move all unmanaged windows to an existing container.
-#         mark = scnd_mark
-#         if not scnd:
-#             mark = main_mark
-#         command = []
-#         for c in unmanaged_windows:
-#             command.append('[con_id={}] move to mark {}'\
-#                     .format(c.id, mark))
-#         execute_commands(command)
 
 def on_window_new(i3, e):
     logging.info('Window::New')
@@ -859,42 +729,11 @@ def on_window_new(i3, e):
     command = []
     if not info['main']['id']:
         children = info['children']
-        create_split_container(i3, children[0], info['main']['mark'])
-        create_split_container(i3, children[1], info['scnd']['mark'])
+        create_container(i3, 'main', children[0])
+        create_container(i3, 'scnd', children[1])
     elif not info['scnd']['id']:
-            # Move window out ot the split container.
-            if info['focused'] in info['main']['children']:
-                command = []
-                if info['main']['layout'] in ['splith', 'tabbed']:
-                    command.append('move down')
-                command.append('move right')
-                execute_commands(command, '')
-
-            # Create the secondary container.
-            create_split_container(i3, info['focused'], info['scnd']['mark'])
-
-            # Make sure that the secondary container is on the same level as
-            # the main container.
-            info = get_workspace_info(i3)
-            if info['glbl']['id']:
-                execute_commands('[con_id={}] move to mark {}'\
-                        .format(info['scnd']['id'], info['glbl']['mark']))
-            else:
-                logging.warning('NOT YET IMPLEMENTED')
-                logging.debug('POTENTIAL GLOBAL')
-            #     parent = find_parent_id(info['main']['id'], info)
-            #     print(parent)
-            #     print(info['main']['id'])
-            #     print('asdf')
-                # glbl = info['descendants'][0].id
-                # if not glbl in [info['main']['id'], info['main']['id']]:
-                #     execute_commands('[con_id={}] mark {}'\
-                #             .format(glbl, info['glbl']['mark']))
-                #     execute_commands('[con_id={}] move to mark {}'\
-                #             .format(info['scnd']['id'], info['glbl']['mark']))
+        create_container(i3, 'scnd')
     else:
-        # If window spawned in the main constainer move it to the secondary
-        # container.
         if info['focused'] in info['main']['children']:
             execute_commands('[con_id={}] move to mark {}'\
                     .format(info['focused'], info['scnd']['mark']))
