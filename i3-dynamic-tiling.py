@@ -73,7 +73,6 @@ logging.basicConfig(
 # Global variables                                                            #
 ###############################################################################
 
-I3DT                = dict()
 I3DT_LAYOUT         = dict()
 I3DT_GLBL_MARK      = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
@@ -296,6 +295,9 @@ def create_container(i3, target, con_id=None):
     if info['glbl']['id']:
         command.append('[con_id={}] move to mark {}'\
                 .format(parent, info['glbl']['mark']))
+        if target == 'main' and info['scnd']['id']:
+            command.append('[con_id={}] swap container with con_id {}'\
+                    .format(parent, info['scnd']['id']))
 
     # Revert the change of focus.
     if con_id != focused:
@@ -525,6 +527,8 @@ def i3dt_monocle_toggle(i3, e):
     command = []
     if info['mode'] == 'tiled':
 
+        focused = info['focused']
+
         # Store the layout of the main container.
         if info['glbl']['layout'] != 'tabbed':
             I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
@@ -577,8 +581,7 @@ def i3dt_monocle_toggle(i3, e):
                         .format(info['scnd']['id'], info['main']['mark']))
 
             # Focus the correct window and make tabbed.
-            command.append('[con_id={}] focus'\
-                    .format(info['focused']))
+            command.append('[con_id={}] focus'.format(focused))
             if not info[target]['layout'] == 'tabbed':
                 command.append('layout tabbed')
 
@@ -615,10 +618,6 @@ def i3dt_monocle_toggle(i3, e):
 
     # Execute the command chain.
     execute_commands(command, '')
-
-
-def i3dt_promote_demote(i3):
-    print('Promote or demote')
 
 
 def i3dt_mirror(i3):
