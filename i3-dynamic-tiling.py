@@ -6,6 +6,7 @@ import time
 import argparse
 import logging
 import copy
+import os
 
 # Things to do
 #
@@ -43,12 +44,21 @@ parser.add_argument(
         workspaces will be handled manually as the default i3. This will
         override the --workspaces-ignore option.""")
 
+parser.add_argument(
+        '--hide-polybar-tabbed',
+        default='false',
+        help="""Hide the polybar when in tabbed mode [false, true].""")
+
 args = parser.parse_args()
 
 # Check the logging level argument.
 log_level_numeric = getattr(logging, args.log_level.upper(), None)
 if not isinstance(log_level_numeric, int):
     raise ValueError('Invalid log level: {}'.format(args.log_level))
+
+if args.hide_polybar_tabbed.upper() not in ['FALSE', 'TRUE']:
+    raise ValueError('Invalid hide polybar tabbed argument: {}'\
+            .format(args.hide_polybar_tabbed))
 
 # Check the workspace ignore argument.
 for w in args.workspaces_ignore:
@@ -80,6 +90,7 @@ I3DT_SCND_MARK      = 'I3DT_SCND_{}'
 I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
 I3DT_WINDOW_PREV = []
 I3DT_WINDOW_CURR = []
+I3DT_HIDE_BAR = True if args.hide_polybar_tabbed.upper() == 'TRUE' else False
 
 # Workspaces to ignore.
 I3DT_WORKSPACE_IGNORE = []
@@ -96,17 +107,14 @@ elif args.workspaces_ignore:
 ###############################################################################
 
 def execute_commands(commands, preamble='Executing:'):
-    # Execute all commands
     if commands:
         if isinstance(commands, list):
-            if preamble:
-                logging.debug(preamble)
+            if preamble: logging.debug(preamble)
             i3.command(', '.join(commands))
             for c in commands:
-                logging.debug('+ Command: {}'.format(c))
+                if c: logging.debug('+ Command: {}'.format(c))
         else:
-            if preamble:
-                logging.debug(preamble)
+            if preamble: logging.debug(preamble)
             i3.command(commands)
             logging.debug('+ Command: {}'.format(commands))
     return []
@@ -477,6 +485,7 @@ def i3dt_tabbed_toggle(i3):
     # Toggle the tabbed layout.
     command = []
     if info['glbl']['layout'] == 'tabbed':
+        if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
 
         # Toggle the split of the secondary container.
         if info['scnd']['id']:
@@ -491,6 +500,8 @@ def i3dt_tabbed_toggle(i3):
         execute_commands(command, 'Disable:')
 
     elif info['mode'] == 'tiled':
+
+        if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
 
         # Toggle the split of the secondary container.
         if info['scnd']['id']:
@@ -526,6 +537,7 @@ def i3dt_monocle_toggle(i3, e):
     # Toggle monocle mode.
     command = []
     if info['mode'] == 'tiled':
+        if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
 
         focused = info['focused']
 
@@ -587,6 +599,8 @@ def i3dt_monocle_toggle(i3, e):
 
     elif info['mode'] == 'monocle':
 
+        if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
+
         focused = info['focused']
 
         # Parse the children.
@@ -599,16 +613,15 @@ def i3dt_monocle_toggle(i3, e):
         if not info['main']['children']:
             info['main']['children'].append(info['scnd']['children'].pop(0))
 
-        # Move as few windows as possible.
-        target = 'scnd' if len(info['main']['children'])\
-                > len(info['scnd']['children']) else 'main'
-
-        # Create container and move all windows.
-        if info[target]['children']:
-            create_container(i3, target, info[target]['children'].pop(0))
-            for c in info[target]['children']:
+        # Create the secondary container and move all windows.
+        if info['scnd']['children']:
+            first = info['scnd']['children'].pop(0)
+            create_container(i3, 'scnd', first)
+            logging.debug('Move windows to container: {}'.format('scnd'))
+            command.append('[con_id={}] layout tabbed'.format(first))
+            for c in info['scnd']['children']:
                 command.append('[con_id={}] move to mark {}'\
-                    .format(c, info[target]['mark']))
+                    .format(c, info['scnd']['mark']))
             command = execute_commands(command, '')
 
         # Reapply the container layouts.
@@ -693,6 +706,12 @@ def on_workspace_focus(i3, e):
     command = []
 
     if not info['mode'] == 'manual':
+
+        if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
+            if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
+        else:
+            if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
+
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
         if info['unmanaged']:
@@ -717,10 +736,18 @@ def on_workspace_focus(i3, e):
                 for i in info['unmanaged']:
                     command.append('[con_id={}] move to mark {}'\
                             .format(i, info['scnd']['mark']))
+    else:
+        os.system("polybar-msg cmd show 1>/dev/null")
+
     execute_commands(command)
 
 
 def on_window_new(i3, e):
+
+    # Ignore polybar events.
+    if e.container.name.startswith('polybar'):
+        return
+
     logging.info('Window::New')
     info = get_workspace_info(i3)
 
