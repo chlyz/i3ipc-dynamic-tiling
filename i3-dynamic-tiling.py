@@ -223,6 +223,8 @@ def restore_container_layout(key, info):
     global I3DT_LAYOUT
     command = ''
     if info[key]['id']:
+        if info['name'] not in I3DT_LAYOUT:
+            I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
         if not key in I3DT_LAYOUT[info['name']]:
             I3DT_LAYOUT[info['name']][key] = 'splitv'
         if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
@@ -480,7 +482,7 @@ def i3dt_execute(i3, e):
     execute_commands(command)
 
 
-def i3dt_tabbed_toggle(i3):
+def i3dt_tabbed_toggle(i3, e):
 
     global I3DT_LAYOUT
     logging.info('Workspace::Tabbed')
@@ -488,6 +490,14 @@ def i3dt_tabbed_toggle(i3):
 
     # Exit if workspace should not be handled.
     if info['mode'] == 'manual':
+        return
+
+    if info['mode'] == 'monocle':
+        i3dt_monocle_toggle(i3, e)
+        return
+
+    if len(info['children']) < 3:
+        i3dt_monocle_toggle(i3, e)
         return
 
     # Toggle the tabbed layout.
@@ -551,6 +561,8 @@ def i3dt_monocle_toggle(i3, e):
 
         # Store the layout of the main container.
         if info['glbl']['layout'] != 'tabbed':
+            if info['name'] not in I3DT_LAYOUT:
+                I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
             I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
 
         # No secondary container: change the layout of the main
@@ -839,7 +851,7 @@ def on_binding(i3, e):
         elif e.binding.command == 'nop i3dt_monocle_toggle':
             i3dt_monocle_toggle(i3, e)
         elif e.binding.command == 'nop i3dt_tabbed_toggle':
-            i3dt_tabbed_toggle(i3)
+            i3dt_tabbed_toggle(i3, e)
     else:
         if e.binding.command.startswith('exec'):
             i3dt_execute(i3, e)
