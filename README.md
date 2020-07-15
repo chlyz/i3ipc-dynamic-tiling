@@ -128,6 +128,13 @@ can be set:
   python3 i3-dynamic-tiling.py --hide-polybar-tabbed true
   ```
 
+- `--tabbed-use-monocle`: Use the monocle mode instead of the tabbed mode when
+  the number of children is less than or equal to this number (default: 2)
+
+  ```bash
+  python3 i3-dynamic-tiling.py --tabbed-use-monocle 5
+  ```
+
 For debugging purposes, one can also change the level of logging with
 
 - `--log-level`: The level of logging.

@@ -49,6 +49,11 @@ parser.add_argument(
         default='false',
         help="""Hide the polybar when in tabbed mode [false, true].""")
 
+parser.add_argument(
+        '--tabbed-use-monocle',
+        default=2,
+        help="""Hide the polybar when in tabbed mode [false, true].""")
+
 args = parser.parse_args()
 
 # Check the logging level argument.
@@ -496,7 +501,7 @@ def i3dt_tabbed_toggle(i3, e):
         i3dt_monocle_toggle(i3, e)
         return
 
-    if len(info['children']) < 3:
+    if len(info['children']) <= args.tabbed_use_monocle:
         i3dt_monocle_toggle(i3, e)
         return
 
