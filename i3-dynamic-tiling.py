@@ -137,6 +137,7 @@ def get_workspace_info(i3, workspace=[]):
             'name': workspace.name,
             'layout': workspace.layout,
             'children': [],
+            'floating': [],
             'descendants': [],
             'id': workspace.id,
             'focused': None,
@@ -153,7 +154,12 @@ def get_workspace_info(i3, workspace=[]):
         info['mode'] = 'tiled'
 
     info['descendants'] = workspace.descendants()
-    info['children'] = list(c.id for c in workspace.leaves())
+    for c in workspace.leaves():
+        info['children'].append(c.id)
+        if c.floating.endswith('on'):
+            info['floating'].append(True)
+        else:
+            info['floating'].append(False)
 
     main_index = None
     scnd_index = None
@@ -705,6 +711,11 @@ def on_workspace_focus(i3, e):
     info = get_workspace_info(i3, e.current)
     command = []
 
+    print('---')
+    print(info['floating'])
+    print(len(info['floating']) - sum(info['floating']))
+    print('---')
+
     if not info['mode'] == 'manual':
 
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
@@ -755,12 +766,21 @@ def on_window_new(i3, e):
             or len(info['children']) < 2:
         return
 
+    # Exit if there are to few tiled windows.
+    if len(info['floating']) - sum(info['floating']) < 2:
+        return
+
     # Create the main container.
     command = []
     if not info['main']['id']:
         children = info['children']
-        create_container(i3, 'main', children[0])
-        create_container(i3, 'scnd', children[1])
+        floating = info['floating']
+        for k in ['main', 'scnd']:
+            is_floating = True
+            while is_floating:
+                child = children.pop(0)
+                is_floating = floating.pop(0)
+            create_container(i3, k, child)
     elif not info['scnd']['id']:
         if info['mode'] == 'monocle':
             index = 0
