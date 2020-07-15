@@ -142,6 +142,7 @@ def get_workspace_info(i3, workspace=[]):
             'name': workspace.name,
             'layout': workspace.layout,
             'children': [],
+            'tiled': [],
             'floating': [],
             'descendants': [],
             'id': workspace.id,
@@ -162,9 +163,9 @@ def get_workspace_info(i3, workspace=[]):
     for c in workspace.leaves():
         info['children'].append(c.id)
         if c.floating.endswith('on'):
-            info['floating'].append(True)
+            info['floating'].append(c.id)
         else:
-            info['floating'].append(False)
+            info['tiled'].append(c.id)
 
     main_index = None
     scnd_index = None
@@ -216,13 +217,21 @@ def get_workspace_info(i3, workspace=[]):
                 info['scnd']['position'] = 'above'
 
     # Find unmanaged windows.
-    info['unmanaged'] = copy.deepcopy(info['children'])
+    info['unmanaged'] = copy.deepcopy(info['tiled'])
     for i in info['main']['children']:
         info['unmanaged'].remove(i)
     for i in info['scnd']['children']:
         info['unmanaged'].remove(i)
 
     return info
+
+def rename_secondary_container(info):
+    command = []
+    command.append('[con_id={}] unmark {}'\
+            .format(info['scnd']['id'], info['scnd']['mark']))
+    command.append('[con_id={}] mark {}'\
+            .format(info['scnd']['id'], info['main']['mark']))
+    return command
 
 def restore_container_layout(key, info):
     global I3DT_LAYOUT
@@ -267,20 +276,11 @@ def create_container(i3, target, con_id=None):
     logging.debug('Create container: {}'.format(target))
 
     # Exit if container already exists.
-    command = []
     if info[target]['id']:
-        # Rename the existing container or exit.
-        if target == 'main' and info['mode'] == 'monocle':
-            command.append('[con_id={}] unmark {}'\
-                    .format(info['main']['id'], info['main']['mark']))
-            command.append('[con_id={}] mark {}'\
-                    .format(info['main']['id'], info['scnd']['mark']))
-            command = execute_commands(command, '')
-            info = get_workspace_info(i3)
-        else:
-            raise ValueError('Container already exist!')
+        raise ValueError('Container already exist!')
 
     # Get the window that should be contained and make sure it is focused.
+    command = []
     focused = info['focused']
     if not con_id:
         con_id = focused
@@ -342,12 +342,12 @@ def find_parent_container(info):
     else:
         parent = info['id']
         layout = info['layout']
-        children = info['children']
+        children = info['tiled']
     return parent, layout, children
 
 def find_container_index(info):
     ind = 0;
-    for c in info['children']:
+    for c in info['tiled']:
         if c == info['focused']:
             break
         ind += 1
@@ -377,10 +377,10 @@ def i3dt_focus(i3, e):
         index = find_container_index(info)
         if action == 'next':
             command.append('[con_id={}] focus'\
-                    .format(info['children'][(index + 1) % len(info['children'])]))
+                    .format(info['tiled'][(index + 1) % len(info['tiled'])]))
         elif action == 'prev':
             command.append('[con_id={}] focus'\
-                    .format(info['children'][(index - 1) % len(info['children'])]))
+                    .format(info['tiled'][(index - 1) % len(info['tiled'])]))
         if info['fullscreen']:
             command.append('fullscreen toggle')
     elif action == 'other':
@@ -461,32 +461,6 @@ def i3dt_move(i3, e):
     execute_commands(command)
 
 
-def i3dt_execute(i3, e):
-    logging.info('Binding::Execute')
-    info = get_workspace_info(i3)
-    command = []
-
-    if info['mode'] == 'manual' or not info['main']['id']:
-        return
-
-    # If focused is in the main container, then focus either the main container
-    # or the last child in the secondary container.
-    if info['focused'] in info['main']['children']:
-        if info['scnd']['id']:
-            command.append('[con_id={}] focus'\
-                    .format(info['scnd']['children'][-1]))
-        elif info['mode'] == 'monocle':
-            command.append('[con_id={}] focus'\
-                    .format(info['children'][-1]))
-        else:
-            command.append('[con_id={}] focus'\
-                    .format(info['main']['id']))
-    elif info['scnd']['id']:
-        command.append('[con_id={}] focus'\
-                .format(info['scnd']['children'][-1]))
-    execute_commands(command)
-
-
 def i3dt_tabbed_toggle(i3, e):
 
     global I3DT_LAYOUT
@@ -501,7 +475,7 @@ def i3dt_tabbed_toggle(i3, e):
         i3dt_monocle_toggle(i3, e)
         return
 
-    if len(info['children']) <= args.tabbed_use_monocle:
+    if len(info['tiled']) <= args.tabbed_use_monocle:
         i3dt_monocle_toggle(i3, e)
         return
 
@@ -612,10 +586,7 @@ def i3dt_monocle_toggle(i3, e):
 
             # Change the mark if necessary.
             if target == 'scnd':
-                command.append('[con_id={}] unmark {}'\
-                        .format(info['scnd']['id'], info['scnd']['mark']))
-                command.append('[con_id={}] mark {}'\
-                        .format(info['scnd']['id'], info['main']['mark']))
+                command.extend(rename_secondary_container(info))
 
             # Focus the correct window and make tabbed.
             command.append('[con_id={}] focus'.format(focused))
@@ -693,34 +664,15 @@ def i3dt_reflect(i3):
         execute_commands(command, '')
 
 
-def i3dt_kill(i3):
-    logging.info('Window::Kill::i3dt_kill')
+def on_window_close(i3, e):
+    logging.info('Window::Close')
     info = get_workspace_info(i3)
-
-    if info['mode'] == 'manual' or not info['main']['id']:
-        execute_commands('kill')
-        return
-
+    if info['mode'] == 'manual': return
     command = []
-    main_focused = info['focused'] in info['main']['children']
-    main_nchildr = len(info['main']['children'])
-    if not main_focused or (main_focused and main_nchildr > 1):
-        # If the focused window is not in the main container or there are
-        # several windows in the main container then it is safe to kill the
-        # focused window.
-        command.append('kill')
+    if len(info['scnd']['children']) == 1:
+        command.extend(rename_secondary_container(info))
     else:
-        # The focused window is the only window in the main container. If there
-        # is a secondary container then swap the focused window with the first
-        # window in the second container and then kill the, now moved, focused
-        # window. Otherwise just kill the focused window.
-        if info['scnd']['id']:
-            command.append('[con_id={}] swap container with con_id {}'\
-                    .format(info['focused'], info['scnd']['children'][0]))
-            command.append('[con_id={}] focus'\
-                    .format(info['scnd']['children'][0]))
-        command.append('[con_id={}] kill'\
-                .format(info['focused']))
+        create_container(i3, 'main', info['scnd']['children'][0])
     execute_commands(command)
 
 
@@ -729,11 +681,6 @@ def on_workspace_focus(i3, e):
     logging.info('Workspace::Focus::{}'.format(e.current.name))
     info = get_workspace_info(i3, e.current)
     command = []
-
-    print('---')
-    print(info['floating'])
-    print(len(info['floating']) - sum(info['floating']))
-    print('---')
 
     if not info['mode'] == 'manual':
 
@@ -759,8 +706,8 @@ def on_workspace_focus(i3, e):
                 for i in info['unmanaged']:
                     command.append('[con_id={}] move to mark {}'\
                             .format(i, mark))
-            elif len(info['children']) > 1:
-                children = info['children']
+            elif len(info['tiled']) > 1:
+                children = info['tiled']
                 create_container(i3, 'main', children[0])
                 create_container(i3, 'scnd', children[1])
                 info = get_workspace_info(i3)
@@ -792,20 +739,14 @@ def on_window_new(i3, e):
         return
 
     # Exit if there are to few tiled windows.
-    if len(info['floating']) - sum(info['floating']) < 2:
+    if len(info['tiled']) < 2:
         return
 
     # Create the main container.
     command = []
     if not info['main']['id']:
-        children = info['children']
-        floating = info['floating']
-        for k in ['main', 'scnd']:
-            is_floating = True
-            while is_floating:
-                child = children.pop(0)
-                is_floating = floating.pop(0)
-            create_container(i3, k, child)
+        create_container(i3, 'main', info['tiled'][0])
+        create_container(i3, 'scnd', info['tiled'][1])
     elif not info['scnd']['id']:
         if info['mode'] == 'monocle':
             index = 0
@@ -832,20 +773,38 @@ def on_window_focus(i3, e):
     I3DT_WINDOW_PREV = I3DT_WINDOW_CURR
     I3DT_WINDOW_CURR = e.container.id
 
+
 def on_window_floating(i3, e):
     logging.info('Window::Floating')
-    logging.debug(e.ipc_data)
-    logging.debug(e.container.floating)
-
     info = get_workspace_info(i3)
-    print(info)
+    if info['mode'] == 'manual': return
+    command = []
+    if e.container.floating == 'user_off':
+        if info['scnd']['id']:
+            command.append('move to mark {}'\
+                    .format(info['scnd']['mark']))
+        elif info['main']['id']:
+            create_container(i3, 'scnd')
+        else:
+            if len(info['unmanaged']) > 1:
+                unmanaged = info['unmanaged']
+                create_container(i3, 'main', unmanaged[0])
+                create_container(i3, 'scnd', unmanaged[1])
+                info = get_workspace_info(i3)
+                for c in info['unmanaged']:
+                    command.append('[con_id={}] move to mark {}'\
+                            .format(c, info['scnd']['id']))
+    elif not info['main']['id'] and info['scnd']['id']:
+        if len(info['scnd']['children']) == 1:
+            command.extend(rename_secondary_container(info))
+        else:
+            create_container(i3, 'main', info['scnd']['children'][0])
+    execute_commands(command)
 
 
 def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
-        if e.binding.command == 'nop i3dt_kill':
-            i3dt_kill(i3)
-        elif e.binding.command.startswith('nop i3dt_focus'):
+        if e.binding.command.startswith('nop i3dt_focus'):
             i3dt_focus(i3, e)
         elif e.binding.command.startswith('nop i3dt_move'):
             i3dt_move(i3, e)
@@ -857,9 +816,6 @@ def on_binding(i3, e):
             i3dt_monocle_toggle(i3, e)
         elif e.binding.command == 'nop i3dt_tabbed_toggle':
             i3dt_tabbed_toggle(i3, e)
-    else:
-        if e.binding.command.startswith('exec'):
-            i3dt_execute(i3, e)
 
 
 i3 = i3ipc.Connection()
@@ -869,7 +825,7 @@ try:
     i3.on(Event.WINDOW_NEW, on_window_new)
     i3.on(Event.BINDING, on_binding)
     i3.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
-    # i3.on(Event.WINDOW_CLOSE, on_window_close)
+    i3.on(Event.WINDOW_CLOSE, on_window_close)
     # i3.on(Event.WINDOW_FOCUS, on_window_focus)
     # i3.on(Event.WINDOW_MOVE, on_window_move)
     i3.main()
