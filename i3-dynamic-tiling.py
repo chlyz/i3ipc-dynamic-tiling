@@ -666,13 +666,15 @@ def i3dt_reflect(i3):
 
 def on_window_close(i3, e):
     logging.info('Window::Close')
+    if e.container.floating.endswith('on'): return
     info = get_workspace_info(i3)
     if info['mode'] == 'manual': return
     command = []
-    if len(info['scnd']['children']) == 1:
-        command.extend(rename_secondary_container(info))
-    else:
-        create_container(i3, 'main', info['scnd']['children'][0])
+    if not info['main']['id'] and info['scnd']['id']:
+        if len(info['scnd']['children']) == 1:
+            command.extend(rename_secondary_container(info))
+        else:
+            create_container(i3, 'main', info['scnd']['children'][0])
     execute_commands(command)
 
 
