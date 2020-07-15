@@ -233,6 +233,8 @@ def restore_container_layout(key, info):
 
 def save_container_layout(key, info):
     global I3DT_LAYOUT
+    if info['name'] not in I3DT_LAYOUT:
+        I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
     command = ''
     if info[key]['id']:
         I3DT_LAYOUT[info['name']][key] = info[key]['layout']
@@ -725,6 +727,7 @@ def on_workspace_focus(i3, e):
 
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
+
         if info['unmanaged']:
             mark = None
             if info['scnd']['id']:
@@ -755,15 +758,20 @@ def on_workspace_focus(i3, e):
 
 def on_window_new(i3, e):
 
+    logging.info('Window::New')
+
     # Ignore polybar events.
     if e.container.name.startswith('polybar'):
         return
 
-    logging.info('Window::New')
+    # Ignore floating windows
+    if e.container.floating.endswith('on'):
+        return
+
     info = get_workspace_info(i3)
 
-    if info['mode'] == 'manual' \
-            or len(info['children']) < 2:
+    # Ignore manually tiled workspaces.
+    if info['mode'] == 'manual':
         return
 
     # Exit if there are to few tiled windows.
@@ -807,6 +815,14 @@ def on_window_focus(i3, e):
     I3DT_WINDOW_PREV = I3DT_WINDOW_CURR
     I3DT_WINDOW_CURR = e.container.id
 
+def on_window_floating(i3, e):
+    logging.info('Window::Floating')
+    logging.debug(e.ipc_data)
+    logging.debug(e.container.floating)
+
+    info = get_workspace_info(i3)
+    print(info)
+
 
 def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
@@ -831,6 +847,7 @@ def on_binding(i3, e):
 
 i3 = i3ipc.Connection()
 try:
+    i3.on(Event.WINDOW_FLOATING, on_window_floating)
     i3.on(Event.WINDOW_FOCUS, on_window_focus)
     i3.on(Event.WINDOW_NEW, on_window_new)
     i3.on(Event.BINDING, on_binding)

@@ -144,6 +144,9 @@ on _i3-dynamic-tiling_ special commands.
 
 ```
 # Settings.
+
+exec_always $HOME/src/i3-dynamic-tiling/i3-dynamic-tiling --hide-polybar-tabbed true
+
 hide_edge_borders smart
 default_border pixel 2
 focus_follows_mouse no
