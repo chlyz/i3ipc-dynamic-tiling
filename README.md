@@ -190,9 +190,6 @@ bindsym $mod+space nop i3dt_tabbed_toggle
 # Toggle tabbed mode.
 bindsym $mod+shift+space nop i3dt_monocle_toggle
 
-# Kill focused window.
-bindsym $mod+shift+q kill
-
 # Toggle secondary to the side of or below of main.
 bindsym $mod+backslash nop i3dt_reflect
 

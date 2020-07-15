@@ -384,7 +384,7 @@ def i3dt_focus(i3, e):
         if info['fullscreen']:
             command.append('fullscreen toggle')
     elif action == 'other':
-        if info['mode'] != 'manual':
+        if info['scnd']['id']:
             if info['fullscreen']:
                 command.append('fullscreen toggle')
             command.append('focus parent, focus next')
@@ -727,7 +727,7 @@ def on_window_new(i3, e):
     logging.info('Window::New')
 
     # Ignore polybar events.
-    if e.container.name.startswith('polybar'):
+    if not e.container.name or e.container.name.startswith('polybar'):
         return
 
     # Ignore floating windows
