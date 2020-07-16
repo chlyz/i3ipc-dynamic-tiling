@@ -8,10 +8,6 @@ import logging
 import copy
 import os
 
-# Things to do
-#
-# + Tabbed new window
-
 ###############################################################################
 # Argument parser                                                             #
 ###############################################################################
@@ -466,59 +462,36 @@ def i3dt_tabbed_toggle(i3, e):
     global I3DT_LAYOUT
     logging.info('Workspace::Tabbed')
     info = get_workspace_info(i3)
-
-    # Exit if workspace should not be handled.
     if info['mode'] == 'manual':
         return
-
-    if info['mode'] == 'monocle':
+    if info['mode'] == 'monocle'\
+            or len(info['tiled']) <= args.tabbed_use_monocle:
         i3dt_monocle_toggle(i3, e)
         return
-
-    if len(info['tiled']) <= args.tabbed_use_monocle:
-        i3dt_monocle_toggle(i3, e)
-        return
-
-    # Toggle the tabbed layout.
     command = []
     if info['glbl']['layout'] == 'tabbed':
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
-
-        # Toggle the split of the secondary container.
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'.\
                     format(info['scnd']['id']))
-
-        # Recreate the layouts of the individual containers.
         for k in ['main', 'scnd']:
             command.append(restore_container_layout(k, info))
-
-        # Execute command chain.
         execute_commands(command, 'Disable:')
-
     elif info['mode'] == 'tiled':
-
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
-
-        # Toggle the split of the secondary container.
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'.\
                     format(info['scnd']['id']))
-
-        # Store the layouts of the individual containers.
         for k in ['main', 'scnd']:
             command.append(save_container_layout(k, info))
-
-        # Execute command chain.
         execute_commands(command, 'Enable:')
-        info = get_workspace_info(i3)
 
         # Find the newly created split container and mark it.
+        info = get_workspace_info(i3)
         if not info['glbl']['id']:
             glbl = info['descendants'][0].id
             execute_commands('[con_id={}] mark {}'\
                     .format(glbl, info['glbl']['mark']), '')
-
 
 
 def i3dt_monocle_toggle(i3, e):
@@ -685,7 +658,6 @@ def on_workspace_focus(i3, e):
     logging.info('Workspace::Focus::{}'.format(e.current.name))
     info = get_workspace_info(i3, e.current)
     command = []
-
     if not info['mode'] == 'manual':
 
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
@@ -720,33 +692,21 @@ def on_workspace_focus(i3, e):
                             .format(i, info['scnd']['mark']))
     else:
         os.system("polybar-msg cmd show 1>/dev/null")
-
     execute_commands(command)
 
 
 def on_window_new(i3, e):
 
     logging.info('Window::New')
-
-    # Ignore polybar events.
-    if not e.container.name or e.container.name.startswith('polybar'):
-        return
-
-    # Ignore floating windows
-    if e.container.floating.endswith('on'):
-        return
-
     info = get_workspace_info(i3)
 
-    # Ignore manually tiled workspaces.
-    if info['mode'] == 'manual':
+    if info['mode'] == 'manual' \
+            or not e.container.name \
+            or e.container.name.startswith('polybar') \
+            or e.container.floating.endswith('on') \
+            or len(info['tiled']) < 2:
         return
 
-    # Exit if there are to few tiled windows.
-    if len(info['tiled']) < 2:
-        return
-
-    # Create the main container.
     command = []
     if not info['main']['id']:
         create_container(i3, 'main', info['tiled'][0])
@@ -765,15 +725,11 @@ def on_window_new(i3, e):
             execute_commands('[con_id={}] move to mark {}'\
                     .format(info['focused'], info['scnd']['mark']))
 
-def on_window_focus(i3, e):
 
+def on_window_focus(i3, e):
     global I3DT_WINDOW_PREV
     global I3DT_WINDOW_CURR
-
-    # Debug information.
     logging.info('Window::Focus')
-
-    # Store container id.
     I3DT_WINDOW_PREV = I3DT_WINDOW_CURR
     I3DT_WINDOW_CURR = e.container.id
 
@@ -830,8 +786,6 @@ try:
     i3.on(Event.BINDING, on_binding)
     i3.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
     i3.on(Event.WINDOW_CLOSE, on_window_close)
-    # i3.on(Event.WINDOW_FOCUS, on_window_focus)
-    # i3.on(Event.WINDOW_MOVE, on_window_move)
     i3.main()
 finally:
     i3.main_quit()
