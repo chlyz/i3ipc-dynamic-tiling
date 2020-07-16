@@ -674,7 +674,9 @@ def on_window_close(i3, e):
         if len(info['scnd']['children']) == 1:
             command.extend(rename_secondary_container(info))
         else:
-            create_container(i3, 'main', info['scnd']['children'][0])
+            con_id = info['scnd']['children'][0]
+            create_container(i3, 'main', con_id)
+            command.append('[con_id={}] focus'.format(con_id))
     execute_commands(command)
 
 
