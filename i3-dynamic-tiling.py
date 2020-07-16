@@ -659,37 +659,24 @@ def on_workspace_focus(i3, e):
     info = get_workspace_info(i3, e.current)
     command = []
     if not info['mode'] == 'manual':
-
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
             if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
         else:
             if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
-
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
-
         if info['unmanaged']:
-            mark = None
-            if info['scnd']['id']:
-                mark = info['scnd']['mark']
-                command.append('[con_id={}] focus'\
-                        .format(info['scnd']['children'][-1]))
-            elif info['main']['id']:
-                mark = info['main']['mark']
-                command.append('[con_id={}] focus'\
-                        .format(info['main']['children'][-1]))
-            if mark:
-                for i in info['unmanaged']:
-                    command.append('[con_id={}] move to mark {}'\
-                            .format(i, mark))
-            elif len(info['tiled']) > 1:
-                children = info['tiled']
-                create_container(i3, 'main', children[0])
-                create_container(i3, 'scnd', children[1])
-                info = get_workspace_info(i3)
-                for i in info['unmanaged']:
-                    command.append('[con_id={}] move to mark {}'\
-                            .format(i, info['scnd']['mark']))
+            if info['main']['id']:
+                if not info['scnd']['id']:
+                    create_container(i3, 'scnd', info['unmanaged'][0])
+            elif len(info['unmanaged']) > 1:
+                unmanaged = info['unmanaged']
+                create_container(i3, 'main', unmanaged[0])
+                create_container(i3, 'scnd', unmanaged[1])
+            info = get_workspace_info(i3)
+            for i in info['unmanaged']:
+                command.append('[con_id={}] move to mark {}'\
+                        .format(i, info['scnd']['mark']))
     else:
         os.system("polybar-msg cmd show 1>/dev/null")
     execute_commands(command)
@@ -762,6 +749,19 @@ def on_window_floating(i3, e):
     execute_commands(command)
 
 
+def on_window_move(i3, e):
+    logging.info('Window:move')
+    info = get_workspace_info(i3)
+    if info['mode'] == 'manual': return
+    command = []
+    if not info['main']['id'] and info['scnd']['id']:
+        if len(info['scnd']['children']) == 1:
+            command.extend(rename_secondary_container(info))
+        else:
+            create_container(i3, 'main', info['scnd']['children'][0])
+    execute_commands(command)
+
+
 def on_binding(i3, e):
     if e.binding.command.startswith('nop'):
         if e.binding.command.startswith('nop i3dt_focus'):
@@ -780,12 +780,13 @@ def on_binding(i3, e):
 
 i3 = i3ipc.Connection()
 try:
+    i3.on(Event.BINDING, on_binding)
+    i3.on(Event.WINDOW_CLOSE, on_window_close)
     i3.on(Event.WINDOW_FLOATING, on_window_floating)
     i3.on(Event.WINDOW_FOCUS, on_window_focus)
+    i3.on(Event.WINDOW_MOVE, on_window_move)
     i3.on(Event.WINDOW_NEW, on_window_new)
-    i3.on(Event.BINDING, on_binding)
     i3.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
-    i3.on(Event.WINDOW_CLOSE, on_window_close)
     i3.main()
 finally:
     i3.main_quit()
