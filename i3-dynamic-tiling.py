@@ -111,7 +111,7 @@ def execute_commands(commands, preamble='Executing:'):
     if commands:
         if isinstance(commands, list):
             if preamble: logging.debug(preamble)
-            i3.command(', '.join(commands))
+            i3.command('; '.join(commands))
             for c in commands:
                 if c: logging.debug('+ Command: {}'.format(c))
         else:
@@ -290,15 +290,15 @@ def create_container(i3, target, con_id=None):
     other = 'main' if target == 'scnd' else 'scnd'
     if con_id in info[other]['children']:
         if info['glbl']['id']:
-            command.append('move to mark {}, splitv'\
+            command.append('move to mark {}; splitv'\
                     .format(info['glbl']['mark']))
         else:
             if info[other]['layout'] in ['splith', 'tabbed']:
                 command.append('move down')
             if target == 'main':
-                command.append('move left, splitv')
+                command.append('move left; splitv')
             else:
-                command.append('move right, splitv')
+                command.append('move right; splitv')
     else:
         command.append('splitv')
     command = execute_commands(command, '')
@@ -383,7 +383,7 @@ def i3dt_focus(i3, e):
         if info['scnd']['id']:
             if info['fullscreen']:
                 command.append('fullscreen toggle')
-            command.append('focus parent, focus next')
+            command.append('focus parent; focus next')
             if info['fullscreen']:
                 command.append('fullscreen toggle')
         else:
@@ -433,18 +433,18 @@ def i3dt_move(i3, e):
                 movement = get_movement(info['scnd']['layout'], 'prev')
                 command.append('[con_id={}] focus'\
                         .format(info['scnd']['children'][0]))
-                command.append('[con_id={}] focus, move to mark {}, move {}'\
+                command.append('[con_id={}] focus; move to mark {}; move {}'\
                         .format(info['focused'], info['scnd']['mark'], movement))
-                command.append('[con_id={}] focus, focus child'\
+                command.append('[con_id={}] focus; focus child'\
                         .format(info['main']['id']))
             else:
                 create_container(i3, 'scnd')
         else:
             command.append('[con_id={}] focus'\
                     .format(info['main']['children'][-1]))
-            command.append('[con_id={}] focus, move to mark {}'\
+            command.append('[con_id={}] focus; move to mark {}'\
                     .format(info['focused'], info['main']['mark']))
-            command.append('[con_id={}] focus, focus child'\
+            command.append('[con_id={}] focus; focus child'\
                     .format(info['scnd']['id']))
     elif action == 'swap':
         if info['focused'] in info['main']['children'] and info['scnd']['id']:
@@ -545,7 +545,7 @@ def i3dt_monocle_toggle(i3, e):
             if target == 'scnd':
                 command.append('[con_id={}] focus'\
                         .format(info['scnd']['children'][0]))
-                command.append('[con_id={}] focus, move to mark {}'\
+                command.append('[con_id={}] focus; move to mark {}'\
                             .format(children.pop(0), info['scnd']['mark']))
                 command.append('move {}'\
                         .format(get_movement(info['scnd']['layout'], 'prev')))

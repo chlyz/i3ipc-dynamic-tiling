@@ -5,6 +5,10 @@ to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
 and [xmonad](https://xmonad.org/), while utilizing the strengths of
 [i3](https://i3wm.org/) and [sway](https://swaywm.org/).
 
+Unfortunately, the current version is not compliant with `sway` due to that it
+is not possible to mark split containers in the same way as in `i3`. This will
+hopefully change in the future or a refactorization of this code is possible.
+
 ## Features
 
 The software creates a _main_ and a _secondary_ container dynamically similar
