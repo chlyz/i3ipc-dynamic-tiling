@@ -41,14 +41,15 @@ parser.add_argument(
         override the --workspaces-ignore option.""")
 
 parser.add_argument(
-        '--hide-polybar-tabbed',
+        '--tabbed-hide-polybar',
         default='false',
         help="""Hide the polybar when in tabbed mode [false, true].""")
 
 parser.add_argument(
         '--tabbed-use-monocle',
         default=2,
-        help="""Hide the polybar when in tabbed mode [false, true].""")
+        help="""Use monocle mode instead of the tabbed mode when the number of
+        windows are less than or equal to this number.""")
 
 args = parser.parse_args()
 
@@ -57,9 +58,9 @@ log_level_numeric = getattr(logging, args.log_level.upper(), None)
 if not isinstance(log_level_numeric, int):
     raise ValueError('Invalid log level: {}'.format(args.log_level))
 
-if args.hide_polybar_tabbed.upper() not in ['FALSE', 'TRUE']:
+if args.tabbed_hide_polybar.upper() not in ['FALSE', 'TRUE']:
     raise ValueError('Invalid hide polybar tabbed argument: {}'\
-            .format(args.hide_polybar_tabbed))
+            .format(args.tabbed_hide_polybar))
 
 # Check the workspace ignore argument.
 for w in args.workspaces_ignore:
@@ -91,7 +92,7 @@ I3DT_SCND_MARK      = 'I3DT_SCND_{}'
 I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
 I3DT_WINDOW_PREV = []
 I3DT_WINDOW_CURR = []
-I3DT_HIDE_BAR = True if args.hide_polybar_tabbed.upper() == 'TRUE' else False
+I3DT_HIDE_BAR = True if args.tabbed_hide_polybar.upper() == 'TRUE' else False
 
 # Workspaces to ignore.
 I3DT_WORKSPACE_IGNORE = []
@@ -465,7 +466,7 @@ def i3dt_tabbed_toggle(i3, e):
     if info['mode'] == 'manual':
         return
     if info['mode'] == 'monocle'\
-            or len(info['tiled']) <= args.tabbed_use_monocle:
+            or len(info['tiled']) <= int(args.tabbed_use_monocle):
         i3dt_monocle_toggle(i3, e)
         return
     command = []
