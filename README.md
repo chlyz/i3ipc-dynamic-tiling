@@ -147,7 +147,7 @@ on _i3-dynamic-tiling_ special commands.
 
 ```
 # Start the dynamic tiling.
-exec_always $HOME/src/i3-dynamic-tiling/i3-dynamic-tiling --hide-polybar-tabbed true
+exec_always $HOME/src/i3-dynamic-tiling/i3-dynamic-tiling --tabbed-hide-polybar true
 
 # Disable the window title bar.
 default_border pixel 2
@@ -213,19 +213,19 @@ not behave well with these window managers, like `Matlab` in `xmonad`.
 
 On the other hand, `i3` and `sway` has a relatively big user base and is under
 active development, which implies that most programs will either behave well or
-otherwise will get fixed. Furthermore, with `wayland` on the rise and there is
-no, at least to my knowledge, `dwm` or `xmonad` implementations on the way.
+otherwise will get fixed. Furthermore, "`wayland` _is coming_" and there is no,
+at least to my knowledge, `dwm` or `xmonad` implementations on the way.
 
 Unfortunately, the positioning of the spawned windows in `i3` and `sway` needs
 to be done manually. This can be tedious and I rather like the
 dynamic/automatic tiling in other window managers like `dwm`, `xmonad`, or
-`qtile` (there are many more).
+`qtile` (there are many more). Fortunately, there is an excellent protocol to
+talk with `i3` and `sway` that can be used to force the behavior of dynamic
+tiling.
 
-Fortunately, there is an excellent protocol to talk with _i3_ and _sway_ that
-can be used to force the behavior of dynamic tiling.
-
-This code is written in python using the i3 IPC framework and _stealing_ ideas
-from [budlabs i3ass](https://github.com/budlabs/i3ass). I highly recommend the
-videos of [budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ)
-on my favourite youtube channel.
+This code is written in python using the i3 IPC framework with inspiration from
+the ideas implemented in [budlabs i3ass](https://github.com/budlabs/i3ass). I
+highly recommend the videos of
+[budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ) on my
+favourite youtube channel.
 
