@@ -159,7 +159,7 @@ def get_workspace_info(i3, workspace=[]):
     info['descendants'] = workspace.descendants()
     for c in workspace.leaves():
         info['children'].append(c.id)
-        if c.floating.endswith('on'):
+        if c.floating and c.floating.endswith('on'):
             info['floating'].append(c.id)
         else:
             info['tiled'].append(c.id)
@@ -640,7 +640,7 @@ def i3dt_reflect(i3):
 
 def on_window_close(i3, e):
     logging.info('Window::Close')
-    if e.container.floating.endswith('on'): return
+    if e.container.floating and e.container.floating.endswith('on'): return
     info = get_workspace_info(i3)
     if info['mode'] == 'manual': return
     command = []
