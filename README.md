@@ -125,11 +125,11 @@ can be set:
   ```bash
   python3 i3-dynamic-tiling.py --workspace-only 1 2 3
   ```
-- `--hide-polybar-tabbed`: Hide the polybar when in global tabbed or monocle
+- `--tabbed-hide-polybar`: Hide the polybar when in global tabbed or monocle
   mode. This require `enable-ipc = true` in your polybar config.
 
   ```bash
-  python3 i3-dynamic-tiling.py --hide-polybar-tabbed true
+  python3 i3-dynamic-tiling.py --tabbed-hide-polybar true
   ```
 
 - `--tabbed-use-monocle`: Use the monocle mode instead of the tabbed mode when
