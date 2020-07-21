@@ -45,12 +45,6 @@ parser.add_argument(
         default='false',
         help="""Hide the polybar when in tabbed mode [false, true].""")
 
-parser.add_argument(
-        '--tabbed-use-monocle',
-        default=0,
-        help="""Use monocle mode instead of the tabbed mode when the number of
-        windows are less than or equal to this number.""")
-
 args = parser.parse_args()
 
 # Check the logging level argument.
@@ -465,8 +459,7 @@ def i3dt_tabbed_toggle(i3, e):
     info = get_workspace_info(i3)
     if info['mode'] == 'manual':
         return
-    if info['mode'] == 'monocle'\
-            or len(info['tiled']) <= int(args.tabbed_use_monocle):
+    if info['mode'] == 'monocle'
         i3dt_monocle_toggle(i3, e)
         return
     command = []
