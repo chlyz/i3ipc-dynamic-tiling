@@ -459,7 +459,7 @@ def i3dt_tabbed_toggle(i3, e):
     info = get_workspace_info(i3)
     if info['mode'] == 'manual':
         return
-    if info['mode'] == 'monocle'
+    if info['mode'] == 'monocle':
         i3dt_monocle_toggle(i3, e)
         return
     command = []
