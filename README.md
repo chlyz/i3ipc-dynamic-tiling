@@ -13,7 +13,9 @@ _Ubuntu 18.04_ with `i3 4.18.1`.
 
 Unfortunately, the current version is not compliant with `sway` due to that it
 is not possible to mark split containers in the same way as in `i3`. This will
-hopefully change in the future or a refactorization of this code is possible.
+hopefully change in the future, otherwise a refactorization of this code is
+possible but requires more book keeping of the position of the main and
+secondary containers.
 
 ## Features
 
@@ -63,7 +65,7 @@ Beyond the normal `i3` move commands, the following are implemented:
 It is possible to change the position of the secondary container:
 
 + `i3dt_reflect`: This command toggles the position of the secondary container
-  between the right/left hand side and below/above of the main container.
+  between the horizontal and vertical relative to the main container.
 
 + `i3dt_mirror`: This command toggles the position of the secondary container
   between the right and left hand side of the main container.
