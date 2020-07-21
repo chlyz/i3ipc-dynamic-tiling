@@ -5,6 +5,12 @@ to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
 and [xmonad](https://xmonad.org/), while utilizing the strengths of
 [i3](https://i3wm.org/) and [sway](https://swaywm.org/).
 
+## Status
+
+If someone actually, against all odds, find this code, here is a gently
+warning: This code is to be considered _alpha_ and have only been tested in
+_Ubuntu 18.04_ with `i3 4.18.1`.
+
 Unfortunately, the current version is not compliant with `sway` due to that it
 is not possible to mark split containers in the same way as in `i3`. This will
 hopefully change in the future or a refactorization of this code is possible.
@@ -12,11 +18,11 @@ hopefully change in the future or a refactorization of this code is possible.
 ## Features
 
 The software creates a _main_ and a _secondary_ container dynamically similar
-to the tiling mode of _dwm_ and _xmonad_. The containers have independent
+to the tiling mode of `dwm` and `xmonad`. The containers have independent
 layouts and the _secondary_ container can be toggled to be on the side of the
 _main_ container of underneath it.
 
-There is also a _tabbed_ mode mimicking the monocle mode of _dwm_ and _xmonad_
+There is also a _tabbed_ mode mimicking the monocle mode of `dwm` and `xmonad`
 that temporarily moves all windows to the main container and enables the
 _tabbed_ layout, all the while remembering the tiling of the containers so that
 the workspace is recreated when the _tabbed_ mode is toggled.
@@ -25,13 +31,12 @@ the workspace is recreated when the _tabbed_ mode is toggled.
 
 Beyond the normal `i3` focus commands, the following are implemented:
 
-+ `i3dt_focus next/prev`: Focus the next window in the workspace with wrapping
-  at the boundaries. For example, if focus _next_ on the last window of the
-  workspace then the first window will be focused.
++ `i3dt_focus next/prev`: Focus the next window on the active workspace with
+  wrapping at the boundaries. For example, if focus _next_ on the last window
+  of the workspace then the first window will be focused.
 
 + `i3dt_focus other`: If the focused window is in the main container then the
-  last window focused window in the secondary container will get focus and vice
-  versa.
+  last focused window in the secondary container will get focus and vice versa.
 
 + `i3dt_focus toggle`: Toggle the focus between the last two focused windows.
 
@@ -76,31 +81,6 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
     therefore taking more screen real estate. I do not find this as intuitive
     as the version described above, but it is more in line with `i3` workflow
     and may be faster.
-
-## Status
-
-If someone actually, against all odds, find this code, here is a gently
-warning: This code is to be considered _alpha_ and have only been tested in
-_Ubuntu 18.04_ with _i3 4.18.1_. Features on the radar:
-
-- [x] `window::new`: New windows are created and managed in a _main_ and a
-  _secondary_ container.
-- [ ] `window::move` (_Ongoing_): Windows can be moved safely within the
-  workspace but movement to other workspaces are not yet ensured to be handled
-  correctly.
-- [x] `window::focus`: Implement moving focus between windows as they where in
-  a circular buffer, without having to consider the position and layout of the
-  _main_ and _secondary_ containers.
-- [x] `workspace::focus`: Tries to recreate the dynamic tiling after a restart.
-
-Special effects:
-
-- [x] `Tabbed toggle`: The _tabbed_ mode is mimicking the _monocle_ mode of
-  _dwm_ and _xmonad_ by the use of the _tabbed_ layout.
-- [x] `Reflect toggle`: The _secondary_ container can be put on the side or
-  underneath the _main_ container.
-- [x] `Mirror toggle`: The _secondary_ container can be put on the left or
-  right (default) hand side of the _main_ container.
 
 ## Configuration
 
@@ -152,17 +132,17 @@ For debugging purposes, one can also change the level of logging with
 These are my special settings that I use for this framework. Notice the `nop`
 on _i3-dynamic-tiling_ special commands.
 
-
 ```
-# Settings.
-
+# Start the dynamic tiling.
 exec_always $HOME/src/i3-dynamic-tiling/i3-dynamic-tiling --hide-polybar-tabbed true
 
-hide_edge_borders smart
+# Disable the window title bar.
 default_border pixel 2
+
+hide_edge_borders smart
 focus_follows_mouse no
 workspace_auto_back_and_forth yes
-show_marks no
+show_marks yes
 
 # Focus next cycle.
 bindsym $mod+j nop i3dt_focus next
@@ -209,21 +189,21 @@ bindsym $mod+semicolon layout toggle tabbed split
 
 ## Inspiration
 
-I am/was a heavy user of _dwm_ and _xmonad_ and I absolutely love these window
-managers, but the user base is quite small compared to _i3_ and _sway_. This
+I am/was a heavy user of `dwm` and `xmonad` and I absolutely love these window
+managers, but the user base is quite small compared to `i3` and `sway`. This
 implies a lot of manual patch management or scripting in a not so simple
 language. Also, there are some programs that I require in my work that does
-not behave well with these window managers, like _Matlab_ in _xmonad_.
+not behave well with these window managers, like `Matlab` in `xmonad`.
 
-On the other hand, _i3_ and _sway_ has a relatively big user base and is under
+On the other hand, `i3` and `sway` has a relatively big user base and is under
 active development, which implies that most programs will either behave well or
-otherwise will get fixed. Furthermore, with _wayland_ on the rise and there is
-no, at least to my knowledge, _dwm_ or _xmonad_ implementations on the way.
+otherwise will get fixed. Furthermore, with `wayland` on the rise and there is
+no, at least to my knowledge, `dwm` or `xmonad` implementations on the way.
 
-Unfortunately, the positioning of the spawned windows in _i3_ and _sway_ needs
+Unfortunately, the positioning of the spawned windows in `i3` and `sway` needs
 to be done manually. This can be tedious and I rather like the
-dynamic/automatic tiling in other window managers like _dwm_, _xmonad_, or
-_qtile_ (there are many more).
+dynamic/automatic tiling in other window managers like `dwm`, `xmonad`, or
+`qtile` (there are many more).
 
 Fortunately, there is an excellent protocol to talk with _i3_ and _sway_ that
 can be used to force the behavior of dynamic tiling.
