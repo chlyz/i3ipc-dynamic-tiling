@@ -58,6 +58,16 @@ Beyond the normal `i3` move commands, the following are implemented:
 + `i3dt_move swap`: Swap the focused window with the focused window in other
   container. The focus is kept within the original container.
 
+### Secondary container position
+
+It is possible to change the position of the secondary container:
+
++ `i3dt_reflect`: This command toggles the position of the secondary container
+  between the right/left hand side and below/above of the main container.
+
++ `i3dt_mirror`: This command toggles the position of the secondary container
+  between the right and left hand side of the main container.
+
 ### Monocle alternatives
 
 There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
