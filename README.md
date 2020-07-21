@@ -81,18 +81,19 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 + _tabbed_: This package implements two different tabbed layouts:
 
-  + `i3dt_monocle_toggle`: This version moves all windows to a main container
-    and then applies the tabbed layout. The operation is reversible and the
-    main and secondary containers are reproduced when toggled. This might be
-    the most intuitive alternative to the _monocle_ layout, but it can be slow
-    when there is a large number of windows on the workspace.
-
   + `i3dt_tabbed_toggle`: This version keeps the main and secondary containers
     but creates a global split container and applies the tabbed layout on all
     containers. This means that there will be two tab bars instead of one and
     therefore taking more screen real estate. I do not find this as intuitive
-    as the version described above, but it is more in line with `i3` workflow
-    and may be faster.
+    as the version described below, but it is more in line with the `i3`
+    workflow and does not alter the focus history.
+
+  + `i3dt_monocle_toggle`: This version moves all windows to a main container
+    and then applies the tabbed layout. The operation is reversible and the
+    main and secondary containers are reproduced when toggled. This might be
+    the most intuitive alternative to the _monocle_ layout, but it, at least
+    for now, alters the windows focus history.
+
 
 ## Configuration
 
@@ -125,7 +126,7 @@ can be set:
   ```
 
 - `--tabbed-use-monocle`: Use the monocle mode instead of the tabbed mode when
-  the number of children is less than or equal to this number (default: 2)
+  the number of children is less than or equal to this number (default: 0)
 
   ```bash
   python3 i3-dynamic-tiling.py --tabbed-use-monocle 5
@@ -183,8 +184,11 @@ bindsym $mod+Return nop i3dt_move swap
 # Toggle simple tabbed mode.
 bindsym $mod+space nop i3dt_tabbed_toggle
 
+# Toggle fullscreen mode for the focused container
+bindsym $mod+Control+space fullscreen toggle
+
 # Toggle tabbed mode.
-bindsym $mod+shift+space nop i3dt_monocle_toggle
+bindsym $mod+Shift+space nop i3dt_monocle_toggle
 
 # Toggle secondary to the side of or below of main.
 bindsym $mod+backslash nop i3dt_reflect

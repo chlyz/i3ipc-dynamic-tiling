@@ -47,7 +47,7 @@ parser.add_argument(
 
 parser.add_argument(
         '--tabbed-use-monocle',
-        default=2,
+        default=0,
         help="""Use monocle mode instead of the tabbed mode when the number of
         windows are less than or equal to this number.""")
 
