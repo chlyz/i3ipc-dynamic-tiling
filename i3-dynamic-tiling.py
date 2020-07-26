@@ -365,9 +365,8 @@ def get_movement(layout, direction):
 
 
 def i3dt_focus(i3, e):
-    logging.info('Window::Focus::{}'\
-            .format(e.binding.command.replace('nop ', '', 1)))
     action = e.binding.command.split(" ")[-1]
+    logging.info('Window::Focus::{}'.format(action.title()))
     info = get_workspace_info(i3)
     command = []
     if action in ['next', 'prev']:
@@ -400,13 +399,12 @@ def i3dt_focus(i3, e):
                 command.append('fullscreen toggle')
         else:
             logging.warning('Window::Focus::Toggle::No previous window')
-    execute_commands(command)
+    execute_commands(command, '')
 
 
 def i3dt_move(i3, e):
-    logging.info('Window::Move::{}'\
-            .format(e.binding.command.replace('nop ', '', 1)))
     action = e.binding.command.split(" ")[-1]
+    logging.info('Window::Move::{}'.format(action.title()))
     info = get_workspace_info(i3)
     command = []
     if action in ['next', 'prev']:
@@ -458,13 +456,12 @@ def i3dt_move(i3, e):
         command.append('swap container with con_id {}'\
                 .format(info['focused']))
 
-    execute_commands(command)
+    execute_commands(command, '')
 
 
 def i3dt_tabbed_toggle(i3, e):
 
     global I3DT_LAYOUT
-    logging.info('Workspace::Tabbed')
     info = get_workspace_info(i3)
     if info['mode'] == 'manual': return
     if info['mode'] == 'monocle':
@@ -472,21 +469,23 @@ def i3dt_tabbed_toggle(i3, e):
         return
     command = []
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
+        logging.info('Workspace::Tabbed::Disable')
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'.\
                     format(info['scnd']['id']))
         for k in ['main', 'scnd']:
             command.append(restore_container_layout(k, info))
-        execute_commands(command, 'Disable:')
+        execute_commands(command, '')
     elif info['mode'] == 'tiled':
+        logging.info('Workspace::Tabbed::Enable')
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
         for k in ['main', 'scnd']:
             command.append(save_container_layout(k, info))
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'.\
                     format(info['scnd']['id']))
-        execute_commands(command, 'Enable:')
+        execute_commands(command, '')
 
         # Find the newly created split container and mark it.
         if not I3DT_VARIANT == 'sway':
