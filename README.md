@@ -9,13 +9,12 @@ and [xmonad](https://xmonad.org/), while utilizing the strengths of
 
 If someone actually, against all odds, find this code, here is a gently
 warning: This code is to be considered _alpha_ and have only been tested in
-_Ubuntu 18.04_ with `i3 4.18.1`.
+_Ubuntu 18.04 and 20.04_ with `i3 4.18.1`.
 
 Unfortunately, the current version is not compliant with `sway` due to that it
 is not possible to mark split containers in the same way as in `i3`. This will
-hopefully change in the future, otherwise a refactorization of this code is
-possible but requires more book keeping of the position of the main and
-secondary containers.
+hopefully change in the future. There is a development branch `sway` that have
+some of the features implemented, but it is a bit untested.
 
 ## Features
 
@@ -152,13 +151,13 @@ show_marks yes
 # Focus next cycle.
 bindsym $mod+j nop i3dt_focus next
 
-# Move next cycle.
+# Move next.
 bindsym $mod+shift+j nop i3dt_move next
 
-# Focus previous in the same container.
+# Focus previous cycle.
 bindsym $mod+k nop i3dt_focus prev
 
-# Move next cycle.
+# Move next.
 bindsym $mod+shift+k nop i3dt_move prev
 
 # Focus toggle container.
