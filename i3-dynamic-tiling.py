@@ -295,7 +295,7 @@ def create_container(i3, target, con_id=None):
             else:
                 command.append('move right; splitv')
     else:
-        command.append('splitv')
+        command.append('[con_id={}] splitv'.format(con_id))
     command = execute_commands(command, '')
 
     # Find and mark the newly created split container.
@@ -378,7 +378,10 @@ def i3dt_focus(i3, e):
         if info['scnd']['id']:
             if info['fullscreen']:
                 command.append('fullscreen toggle')
-            command.append('focus parent; focus next')
+            con_id = info['main']['focus']
+            if info['focused'] in info['main']['children']:
+                con_id = info['scnd']['focus']
+            command.append('[con_id={}] focus'.format(con_id))
             if info['fullscreen']:
                 command.append('fullscreen toggle')
         else:
@@ -630,10 +633,25 @@ def i3dt_reflect(i3):
                         .format(info[k]['children'][0]))
         execute_commands(command, '')
 
+def i3dt_kill(i3, e):
+    logging.info('Window::Close')
+    info = get_workspace_info(i3)
+    if info['mode'] == 'manual': return
+    # floating = e.container.floating
+    # if floating and floating.endswith('on'): return
+    command = []
+    if info['focused'] in info['main']['children']\
+            and (len(info['main']['children']) == 1)\
+            and info['scnd']['id']:
+        command.append('[con_id={}] swap container with con_id {}'\
+                .format(info['focused'], info['scnd']['children'][0]))
+    execute_commands(command)
+
 
 def on_window_close(i3, e):
     logging.info('Window::Close')
-    if e.container.floating and e.container.floating.endswith('on'): return
+    floating = e.container.floating
+    if floating and floating.endswith('on'): return
     info = get_workspace_info(i3)
     if info['mode'] == 'manual': return
     command = []
@@ -682,10 +700,10 @@ def on_window_new(i3, e):
     info = get_workspace_info(i3)
 
     if info['mode'] == 'manual' \
-            or not e.container.name \
-            or e.container.name.startswith('polybar') \
-            or e.container.floating.endswith('on') \
+            or (e.container.name and e.container.name.startswith('polybar')) \
+            or (e.container.floating and e.container.floating.endswith('on')) \
             or len(info['tiled']) < 2:
+        # or not e.container.name \
         return
 
     command = []
@@ -770,6 +788,9 @@ def on_binding(i3, e):
             i3dt_monocle_toggle(i3, e)
         elif e.binding.command == 'nop i3dt_tabbed_toggle':
             i3dt_tabbed_toggle(i3, e)
+    elif e.binding.command == 'kill':
+        i3dt_kill(i3, e)
+
 
 
 i3 = i3ipc.Connection()
