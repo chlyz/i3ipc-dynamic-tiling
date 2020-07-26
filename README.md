@@ -9,11 +9,11 @@ and [xmonad](https://xmonad.org/), while utilizing the strengths of
 
 If someone actually, against all odds, find this code, here is a gently
 warning: This code is to be considered _alpha_ and have only been tested in
-_Ubuntu 18.04 and 20.04_ with `i3 4.18.1`.
+_Ubuntu 18.04 and 20.04_ with `i3 4.18.1` and `sway v1.5`.
 
 Unfortunately, the current version is not completely compliant with `sway` due
 to minor discrepancies in how split containers are created when compared with
-`i3`. This is possible to fix and development is ongoing.
+`i3`. This is possible to fix and development for `sway v1.5` is ongoing.
 
 ## Requirements
 
