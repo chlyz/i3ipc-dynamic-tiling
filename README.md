@@ -21,7 +21,7 @@ some of the features implemented, but it is a bit untested.
 This software relies on the on the `i3ipc` python package which can be obtained
 via `pip`
 
-```
+```bash
 pip3 install i3ipc
 ```
 
