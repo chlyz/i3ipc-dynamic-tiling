@@ -16,6 +16,15 @@ is not possible to mark split containers in the same way as in `i3`. This will
 hopefully change in the future. There is a development branch `sway` that have
 some of the features implemented, but it is a bit untested.
 
+## Requirements
+
+This software relies on the on the `i3ipc` python package which can be obtained
+via `pip`
+
+```
+pip3 install i3ipc
+```
+
 ## Features
 
 The software creates a _main_ and a _secondary_ container dynamically similar
@@ -157,10 +166,10 @@ bindsym $mod+shift+j nop i3dt_move next
 # Focus previous cycle.
 bindsym $mod+k nop i3dt_focus prev
 
-# Move next.
+# Move previous.
 bindsym $mod+shift+k nop i3dt_move prev
 
-# Focus toggle container.
+# Focus previous window toggle.
 bindsym $mod+i nop i3dt_focus toggle
 
 # Focus the other container.
@@ -172,13 +181,13 @@ bindsym $mod+shift+o nop i3dt_move other
 # Swap window with the other container.
 bindsym $mod+Return nop i3dt_move swap
 
-# Toggle simple tabbed mode.
+# Toggle tabbed mode.
 bindsym $mod+space nop i3dt_tabbed_toggle
 
-# Toggle fullscreen mode for the focused container
+# Toggle fullscreen mode.
 bindsym $mod+Control+space fullscreen toggle
 
-# Toggle tabbed mode.
+# Toggle monocle mode.
 bindsym $mod+Shift+space nop i3dt_monocle_toggle
 
 # Toggle secondary to the side of or below of main.
