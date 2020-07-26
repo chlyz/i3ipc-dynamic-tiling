@@ -105,22 +105,20 @@ elif args.workspaces_ignore:
 
 def execute_commands(commands, preamble='Executing:'):
     if commands:
+        if preamble: logging.debug(preamble)
         if isinstance(commands, list):
             parsed_commands = [x for x in commands if x]
             commands = parsed_commands
-            if preamble: logging.debug(preamble)
-            logging.debug('Command chain: {}'.format('; '.join(commands)))
             reply = i3.command('; '.join(commands))
-            for c in commands:
-                if c: logging.debug('+ Command: {}'.format(c))
-            for r in reply:
-                logging.debug('+ Reply: {}'.format(r.ipc_data))
+            for i, c in enumerate(commands):
+                logging.debug('+ {} => {}'.format(c, reply[i].ipc_data))
+                if not reply[i].success:
+                    logging.error(reply[i].error)
         else:
-            if preamble: logging.debug(preamble)
             reply = i3.command(commands)
-            logging.debug('+ Command: {}'.format(commands))
-            for r in reply:
-                logging.debug('+ Reply: {}'.format(r.ipc_data))
+            logging.debug('+ {} => {}'.format(commands, reply[0].ipc_data))
+            if not reply[0].success:
+                logging.error(reply[0].error)
     return []
 
 def get_workspace_info(i3, workspace=[]):
@@ -468,8 +466,7 @@ def i3dt_tabbed_toggle(i3, e):
     global I3DT_LAYOUT
     logging.info('Workspace::Tabbed')
     info = get_workspace_info(i3)
-    if info['mode'] == 'manual':
-        return
+    if info['mode'] == 'manual': return
     if info['mode'] == 'monocle':
         i3dt_monocle_toggle(i3, e)
         return
@@ -518,10 +515,10 @@ def i3dt_monocle_toggle(i3, e):
         focused = info['focused']
 
         # Store the layout of the main container.
-        if info['glbl']['layout'] != 'tabbed':
-            if info['name'] not in I3DT_LAYOUT:
-                I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
-            I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
+        # if info['glbl']['layout'] != 'tabbed':
+        #     if info['name'] not in I3DT_LAYOUT:
+        #         I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
+        #     I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
 
         # No secondary container: change the layout of the main
         # container.
@@ -530,8 +527,8 @@ def i3dt_monocle_toggle(i3, e):
                     .format(info['main']['focus']))
         else:
             # Store the layout of the secondary container.
-            if info['glbl']['layout'] != 'tabbed':
-                I3DT_LAYOUT[info['name']]['scnd'] = info['scnd']['layout']
+            # if info['layout'] != 'tabbed' or info['glbl']['layout'] != 'tabbed':
+            #     I3DT_LAYOUT[info['name']]['scnd'] = info['scnd']['layout']
 
             # Mark all windows in the secondary container.
             for i, c in enumerate(info['scnd']['children']):
@@ -541,10 +538,10 @@ def i3dt_monocle_toggle(i3, e):
             # Move as few windows as possible.
             source = 'scnd'
             target = 'main'
-            if len(info['scnd']['children'])\
-                    > len(info['main']['children']):
-                source = 'main'
-                target = 'scnd'
+            # if len(info['scnd']['children'])\
+            #         > len(info['main']['children']):
+            #     source = 'main'
+            #     target = 'scnd'
 
             # Move the source windows to the target container.
             children = info[source]['children']
@@ -553,8 +550,8 @@ def i3dt_monocle_toggle(i3, e):
                         .format(info['scnd']['children'][0]))
                 command.append('[con_id={}] focus; move to mark {}'\
                             .format(children.pop(0), info['scnd']['mark']))
-                command.append('move {}'\
-                        .format(get_movement(info['scnd']['layout'], 'prev')))
+                # command.append('move {}'\
+                #         .format(get_movement(info['scnd']['layout'], 'prev')))
             else:
                 command.append('[con_id={}] focus'\
                         .format(info['main']['children'][-1]))
