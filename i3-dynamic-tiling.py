@@ -467,7 +467,7 @@ def i3dt_tabbed_toggle(i3, e):
         i3dt_monocle_toggle(i3, e)
         return
     command = []
-    if info['glbl']['layout'] == 'tabbed':
+    if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'.\
@@ -477,19 +477,20 @@ def i3dt_tabbed_toggle(i3, e):
         execute_commands(command, 'Disable:')
     elif info['mode'] == 'tiled':
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
+        for k in ['main', 'scnd']:
+            command.append(save_container_layout(k, info))
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'.\
                     format(info['scnd']['id']))
-        for k in ['main', 'scnd']:
-            command.append(save_container_layout(k, info))
         execute_commands(command, 'Enable:')
 
         # Find the newly created split container and mark it.
-        info = get_workspace_info(i3)
-        if not info['glbl']['id']:
-            glbl = info['descendants'][0].id
-            execute_commands('[con_id={}] mark {}'\
-                    .format(glbl, info['glbl']['mark']), '')
+        if not I3DT_VARIANT == 'sway':
+            info = get_workspace_info(i3)
+            if not info['glbl']['id']:
+                glbl = info['descendants'][0].id
+                execute_commands('[con_id={}] mark {}'\
+                        .format(glbl, info['glbl']['mark']), '')
 
 
 def i3dt_monocle_toggle(i3, e):
