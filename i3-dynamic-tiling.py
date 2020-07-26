@@ -265,18 +265,30 @@ def find_parent_id(con_id, info):
                 break
     return parent
 
-def create_container(i3, target, con_id=None):
+def create_container(i3, name, con_id=None):
+    """Create a split container for the specified container id
+
+    Parameters
+    ----------
+    i3 : i3ipc.Connection
+        A i3ipc connection
+    name : str
+        The name of the target split container
+    con_id : int, optional
+        The container id that should be contained (default is the
+        focused container id)
+    """
+
+    logging.debug('Create container: {}'.format(name))
 
     # Get workspace information.
     info = get_workspace_info(i3)
 
-    logging.debug('Create container: {}'.format(target))
-
     # Exit if container already exists.
-    if info[target]['id']:
-        raise ValueError('Container already exist!')
+    if info[name]['id']: raise ValueError('Container already exist!')
 
-    # Get the window that should be contained and make sure it is focused.
+    # Get the window that should be contained and make sure it is
+    # focused.
     command = []
     focused = info['focused']
     if not con_id:
@@ -288,18 +300,48 @@ def create_container(i3, target, con_id=None):
     command.append('[con_id={}] unmark'.format(con_id))
 
     # Move the window outside any other container.
-    other = 'main' if target == 'scnd' else 'scnd'
+    other = 'main' if name == 'scnd' else 'scnd'
     if con_id in info[other]['children']:
         if info['glbl']['id']:
             command.append('move to mark {}; splitv'\
                     .format(info['glbl']['mark']))
         else:
-            if info[other]['layout'] in ['splith', 'tabbed']:
-                command.append('move down')
-            if target == 'main':
-                command.append('move left; splitv')
+            if other == 'main':
+                move = 'right'
+                if info['layout'] in ['splitv', 'stacked']:
+                    move = 'down'
+
+                # Move the to the edge of the container.
+                for [ind, cid] in enumerate(info['main']['children']):
+                    if info['focused'] == cid: break
+                layout = info['main']['layout']
+                if (layout in ['splith', 'tabbed'] and move == 'right')\
+                        or (layout in ['splitv', 'stacked'] and move == 'down'):
+                    for n in range(1, len(info['main']['children']) - ind):
+                        command.append('move {}'.format(move))
             else:
-                command.append('move right; splitv')
+                move = 'left'
+                if info['layout'] in ['splitv', 'stacked']:
+                    move = 'up'
+
+                # Move the to the edge of the container.
+                for [ind, cid] in enumerate(info['scnd']['children']):
+                    if info['focused'] == cid: break
+                layout = info['main']['layout']
+                if (layout in ['splith', 'tabbed'] and move == 'left')\
+                        or (layout in ['splitv', 'stacked'] and move == 'up'):
+                    for n in range(1, num + 1):
+                        command.append('move {}'.format(move))
+
+            # Move outside the split container.
+            command.append('move {}'.format(move))
+            command.append('splitv')
+            # TODO: Add option to set default split size
+            # TODO: Add variables to remember the split size
+            if info['layout'] in ['splitv', 'stacked']:
+                command.append('resize set height 50 ppt')
+            else:
+                command.append('resize set width 50 ppt')
     else:
         command.append('[con_id={}] splitv'.format(con_id))
     command = execute_commands(command, '')
@@ -308,20 +350,16 @@ def create_container(i3, target, con_id=None):
     info = get_workspace_info(i3)
     parent = find_parent_id(con_id, info)
     command.append('[con_id={}] mark {}'\
-            .format(parent, info[target]['mark']))
+            .format(parent, info[name]['mark']))
 
     # Make sure that the newly created container is in the global split
     # container.
     if info['glbl']['id']:
         command.append('[con_id={}] move to mark {}'\
                 .format(parent, info['glbl']['mark']))
-        if target == 'main' and info['scnd']['id']:
+        if name == 'main' and info['scnd']['id']:
             command.append('[con_id={}] swap container with con_id {}'\
                     .format(parent, info['scnd']['id']))
-
-    # Revert the change of focus.
-    if con_id != focused:
-        command.append('[con_id={}] focus'.format(focused))
 
     command = execute_commands(command, '')
 
@@ -700,7 +738,7 @@ def on_workspace_focus(i3, e):
                 command.append('[con_id={}] move to mark {}'\
                         .format(i, info['scnd']['mark']))
     else:
-        os.system("polybar-msg cmd show 1>/dev/null")
+        if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
     execute_commands(command)
 
 
