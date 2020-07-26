@@ -106,14 +106,21 @@ elif args.workspaces_ignore:
 def execute_commands(commands, preamble='Executing:'):
     if commands:
         if isinstance(commands, list):
+            parsed_commands = [x for x in commands if x]
+            commands = parsed_commands
             if preamble: logging.debug(preamble)
-            i3.command('; '.join(commands))
+            logging.debug('Command chain: {}'.format('; '.join(commands)))
+            reply = i3.command('; '.join(commands))
             for c in commands:
                 if c: logging.debug('+ Command: {}'.format(c))
+            for r in reply:
+                logging.debug('+ Reply: {}'.format(r.ipc_data))
         else:
             if preamble: logging.debug(preamble)
-            i3.command(commands)
+            reply = i3.command(commands)
             logging.debug('+ Command: {}'.format(commands))
+            for r in reply:
+                logging.debug('+ Reply: {}'.format(r.ipc_data))
     return []
 
 def get_workspace_info(i3, workspace=[]):
