@@ -79,6 +79,7 @@ logging.basicConfig(
 # Global variables                                                            #
 ###############################################################################
 
+I3DT_VARIANT        = None
 I3DT_LAYOUT         = dict()
 I3DT_GLBL_MARK      = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK      = 'I3DT_MAIN_{}'
@@ -616,7 +617,8 @@ def i3dt_reflect(i3):
         # split container.
         command.append('[con_id={}] layout toggle split'\
                 .format(info['scnd']['id']))
-        if not info['glbl']['id']:
+        # Sway does not create a global split container as i3 does.
+        if not I3DT_VARIANT == 'sway' and not info['glbl']['id']:
             command = execute_commands(command)
             info = get_workspace_info(i3)
             command.append('[con_id={}] mark {}'\
@@ -624,7 +626,11 @@ def i3dt_reflect(i3):
         # Update the layout of the containers.
         command = execute_commands(command)
         info = get_workspace_info(i3)
-        orientation = info['glbl']['orientation']
+        orientation = 'horizontal'
+        if I3DT_VARIANT == 'sway' and info['layout'] == 'splitv':
+            orientation = 'vertical'
+        else:
+            orientation = info['glbl']['orientation']
         for k in ['main', 'scnd']:
             layout = info[k]['layout']
             if (layout == 'splitv' and orientation == 'vertical')\
@@ -794,6 +800,7 @@ def on_binding(i3, e):
 
 
 i3 = i3ipc.Connection()
+I3DT_VARIANT = i3.get_version().ipc_data['variant']
 try:
     i3.on(Event.BINDING, on_binding)
     i3.on(Event.WINDOW_CLOSE, on_window_close)
