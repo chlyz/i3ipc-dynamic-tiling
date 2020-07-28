@@ -335,12 +335,13 @@ def create_container(i3, name, con_id=None):
 
             # Move outside the split container.
             command.append('move {}'.format(move))
-            command.append('splitv')
             # TODO: Add option to set default split size
             # TODO: Add variables to remember the split size
             if info['layout'] in ['splitv', 'stacked']:
+                command.append('splith')
                 command.append('resize set height 50 ppt')
             else:
+                command.append('splitv')
                 command.append('resize set width 50 ppt')
     else:
         command.append('[con_id={}] splitv'.format(con_id))
@@ -470,19 +471,14 @@ def i3dt_move(i3, e):
                     command.append('swap container with con_id {}'\
                             .format(info['focused']))
             elif info['scnd']['id']:
-                movement = get_movement(info['scnd']['layout'], 'prev')
-                command.append('[con_id={}] focus'\
-                        .format(info['scnd']['children'][0]))
-                command.append('[con_id={}] focus; move to mark {}; move {}'\
-                        .format(info['focused'], info['scnd']['mark'], movement))
+                command.append('[con_id={}] move to mark {}'\
+                        .format(info['focused'], info['scnd']['mark']))
                 command.append('[con_id={}] focus; focus child'\
                         .format(info['main']['id']))
             else:
                 create_container(i3, 'scnd')
         else:
-            command.append('[con_id={}] focus'\
-                    .format(info['main']['children'][-1]))
-            command.append('[con_id={}] focus; move to mark {}'\
+            command.append('[con_id={}] move to mark {}'\
                     .format(info['focused'], info['main']['mark']))
             command.append('[con_id={}] focus; focus child'\
                     .format(info['scnd']['id']))
@@ -842,7 +838,12 @@ def on_binding(i3, e):
 
 
 i3 = i3ipc.Connection()
-I3DT_VARIANT = i3.get_version().ipc_data['variant']
+version = i3.get_version().ipc_data
+if 'variant' in version:
+    I3DT_VARIANT = version['variant']
+else:
+    I3DT_VARIANT = 'i3'
+
 try:
     i3.on(Event.BINDING, on_binding)
     i3.on(Event.WINDOW_CLOSE, on_window_close)
