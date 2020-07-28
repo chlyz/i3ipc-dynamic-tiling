@@ -31,10 +31,8 @@ to the tiling mode of `dwm` and `xmonad`. The containers have independent
 layouts and the _secondary_ container can be toggled to be on the side of the
 _main_ container of underneath it.
 
-There is also a _tabbed_ mode mimicking the monocle mode of `dwm` and `xmonad`
-that temporarily moves all windows to the main container and enables the
-_tabbed_ layout, all the while remembering the tiling of the containers so that
-the workspace is recreated when the _tabbed_ mode is toggled.
+There are also several alternatives implemented to mimic the monocle mode of
+`dwm` and `xmonad`.
 
 ### Focus
 
@@ -95,11 +93,10 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
     as the version described below, but it is more in line with the `i3`
     workflow and does not alter the focus history.
 
-  + `i3dt_monocle_toggle`: This version moves all windows to a main container
-    and then applies the tabbed layout. The operation is reversible and the
-    main and secondary containers are reproduced when toggled. This might be
-    the most intuitive alternative to the _monocle_ layout, but it, at least
-    for now, alters the windows focus history.
+  + `i3dt_monocle_toggle`: This version toggles the fullscreen mode on the
+    focused split container (the main or the secondary) and then applies the
+    tabbed layout. This might be, in my opinion, the most intuitive alternative
+    to the _monocle_ layout.
 
 
 ## Configuration

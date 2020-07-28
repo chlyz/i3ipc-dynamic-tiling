@@ -147,8 +147,8 @@ def get_workspace_info(i3, workspace=[]):
             'fullscreen': False,
             'unmanaged': [],
             'glbl': { 'mark': glbl_mark, 'id': None, 'orientation': 'horizontal', 'layout': 'splith' },
-            'main': { 'mark': main_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [] },
-            'scnd': { 'mark': scnd_mark, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [], 'position': 'right' },
+            'main': { 'mark': main_mark, 'fullscreen': 0, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [] },
+            'scnd': { 'mark': scnd_mark, 'fullscreen': 0, 'id': None, 'focus': None, 'layout': 'splitv', 'children': [], 'position': 'right' },
             'tbbd': { 'mark': tbbd_mark, 'indices': [], 'children': [] },
             }
 
@@ -179,6 +179,7 @@ def get_workspace_info(i3, workspace=[]):
             info['main']['id'] = c.id
             if c.focus:
                 info['main']['focus'] = c.focus[0]
+            info['main']['fullscreen'] = c.fullscreen_mode
             info['main']['layout'] = c.layout
             info['main']['children'] = list(d.id for d in c.leaves())
             main_index = i
@@ -186,6 +187,7 @@ def get_workspace_info(i3, workspace=[]):
             info['scnd']['id'] = c.id
             if c.focus:
                 info['scnd']['focus'] = c.focus[0]
+            info['scnd']['fullscreen'] = c.fullscreen_mode
             info['scnd']['layout'] = c.layout
             info['scnd']['children'] = list(d.id for d in c.leaves())
             scnd_index = i
@@ -248,12 +250,8 @@ def save_container_layout(key, info):
     global I3DT_LAYOUT
     if info['name'] not in I3DT_LAYOUT:
         I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
-    command = ''
     if info[key]['id']:
         I3DT_LAYOUT[info['name']][key] = info[key]['layout']
-        command = '[con_id={}] layout tabbed'\
-                .format(info[key]['children'][0])
-    return command
 
 def find_parent_id(con_id, info):
     parent = None
@@ -485,8 +483,8 @@ def i3dt_move(i3, e):
     elif action == 'swap':
         if info['focused'] in info['main']['children'] and info['scnd']['id']:
             command.append('[con_id={}] focus'.format(info['scnd']['focus']))
-        else:
-            command.append('[con_id={}] focus'.format(info['main']['focus']))
+        # else:
+        #     command.append('[con_id={}] focus'.format(info['main']['focus']))
         command.append('swap container with con_id {}'\
                 .format(info['focused']))
 
@@ -515,7 +513,9 @@ def i3dt_tabbed_toggle(i3, e):
         logging.info('Workspace::Tabbed::Enable')
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
         for k in ['main', 'scnd']:
-            command.append(save_container_layout(k, info))
+            save_container_layout(k, info)
+            command.append('[con_id={}] layout tabbed'\
+                    .format(info[k]['children'][0]))
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'.\
                     format(info['scnd']['id']))
@@ -540,101 +540,26 @@ def i3dt_monocle_toggle(i3, e):
     if info['mode'] == 'manual' or not info['main']['id']:
         return
 
-    # Toggle monocle mode.
+    key = None
+    if info['main']['id'] and info['focused'] in info['main']['children']:
+        key = 'main'
+    elif info['scnd']['id'] and info['focused'] in info['scnd']['children']:
+        key = 'scnd'
+
     command = []
-    if info['mode'] == 'tiled':
-        if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
+    if not key:
+        command.append('fullscreen toggle')
+    elif not info[key]['fullscreen']:
+        save_container_layout(key, info)
+        if not info[key]['layout'] == 'tabbed':
+            command.append('layout tabbed')
+        command.append('[con_id={}] fullscreen toggle'\
+                .format(info[key]['id']))
+    else:
+        command.append(restore_container_layout(key, info))
+        command.append('[con_id={}] fullscreen toggle'\
+                .format(info[key]['id']))
 
-        focused = info['focused']
-
-        # Store the layout of the main container.
-        # if info['glbl']['layout'] != 'tabbed':
-        #     if info['name'] not in I3DT_LAYOUT:
-        #         I3DT_LAYOUT[info['name']] = { 'main': 'splitv', 'scnd': 'splitv' }
-        #     I3DT_LAYOUT[info['name']]['main'] = info['main']['layout']
-
-        # No secondary container: change the layout of the main
-        # container.
-        if not info['scnd']['id']:
-            command.append('[con_id={}] layout tabbed'\
-                    .format(info['main']['focus']))
-        else:
-            # Store the layout of the secondary container.
-            # if info['layout'] != 'tabbed' or info['glbl']['layout'] != 'tabbed':
-            #     I3DT_LAYOUT[info['name']]['scnd'] = info['scnd']['layout']
-
-            # Mark all windows in the secondary container.
-            for i, c in enumerate(info['scnd']['children']):
-                command.append('[con_id={}] mark {}'\
-                        .format(c, info['tbbd']['mark'] + str(i)))
-
-            # Move as few windows as possible.
-            source = 'scnd'
-            target = 'main'
-            # if len(info['scnd']['children'])\
-            #         > len(info['main']['children']):
-            #     source = 'main'
-            #     target = 'scnd'
-
-            # Move the source windows to the target container.
-            children = info[source]['children']
-            if target == 'scnd':
-                command.append('[con_id={}] focus'\
-                        .format(info['scnd']['children'][0]))
-                command.append('[con_id={}] focus; move to mark {}'\
-                            .format(children.pop(0), info['scnd']['mark']))
-                # command.append('move {}'\
-                #         .format(get_movement(info['scnd']['layout'], 'prev')))
-            else:
-                command.append('[con_id={}] focus'\
-                        .format(info['main']['children'][-1]))
-                children.reverse()
-            for c in children:
-                command.append('[con_id={}] move to mark {}'\
-                        .format(c, info[target]['mark']))
-
-            # Change the mark if necessary.
-            if target == 'scnd':
-                command.extend(rename_secondary_container(info))
-
-            # Focus the correct window and make tabbed.
-            command.append('[con_id={}] focus'.format(focused))
-            if not info[target]['layout'] == 'tabbed':
-                command.append('layout tabbed')
-
-    elif info['mode'] == 'monocle':
-
-        if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
-
-        focused = info['focused']
-
-        # Parse the children.
-        info['scnd']['children'] = info['tbbd']['children']
-        for c in info['scnd']['children']:
-            info['main']['children'].remove(c)
-            command.append('[con_id={}] unmark'.format(c))
-
-        # Make sure that the main container is not empty.
-        if not info['main']['children']:
-            info['main']['children'].append(info['scnd']['children'].pop(0))
-
-        # Create the secondary container and move all windows.
-        if info['scnd']['children']:
-            first = info['scnd']['children'].pop(0)
-            create_container(i3, 'scnd', first)
-            logging.debug('Move windows to container: {}'.format('scnd'))
-            command.append('[con_id={}] layout tabbed'.format(first))
-            for c in info['scnd']['children']:
-                command.append('[con_id={}] move to mark {}'\
-                    .format(c, info['scnd']['mark']))
-            command = execute_commands(command, '')
-
-        # Reapply the container layouts.
-        info = get_workspace_info(i3)
-        for k in ['main', 'scnd']:
-            command.append(restore_container_layout(k, info))
-
-    # Execute the command chain.
     execute_commands(command, '')
 
 
@@ -834,7 +759,6 @@ def on_binding(i3, e):
             i3dt_tabbed_toggle(i3, e)
     elif e.binding.command == 'kill':
         i3dt_kill(i3, e)
-
 
 
 i3 = i3ipc.Connection()
