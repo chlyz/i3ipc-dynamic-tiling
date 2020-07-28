@@ -269,7 +269,7 @@ def create_container(i3, name, con_id=None):
     Parameters
     ----------
     i3 : i3ipc.Connection
-        A i3ipc connection
+        An i3ipc connection
     name : str
         The name of the target split container
     con_id : int, optional
@@ -361,6 +361,14 @@ def create_container(i3, name, con_id=None):
                     .format(parent, info['scnd']['id']))
 
     command = execute_commands(command, '')
+
+def find_parent_container_key(info):
+    key = None
+    if info['main']['id'] and info['focused'] in info['main']['children']:
+        key = 'main'
+    elif info['scnd']['id'] and info['focused'] in info['scnd']['children']:
+        key = 'scnd'
+    return key
 
 def find_parent_container(info):
     parent = None
@@ -492,16 +500,16 @@ def i3dt_move(i3, e):
 
 
 def i3dt_tabbed_toggle(i3, e):
+    logging.info('Workspace::Tabbed')
 
     global I3DT_LAYOUT
     info = get_workspace_info(i3)
     if info['mode'] == 'manual': return
     if info['mode'] == 'monocle':
-        i3dt_monocle_toggle(i3, e)
+        i3dt_monocle_toggle(i3)
         return
     command = []
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
-        logging.info('Workspace::Tabbed::Disable')
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd show 1>/dev/null")
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'.\
@@ -510,7 +518,6 @@ def i3dt_tabbed_toggle(i3, e):
             command.append(restore_container_layout(k, info))
         execute_commands(command, '')
     elif info['mode'] == 'tiled':
-        logging.info('Workspace::Tabbed::Enable')
         if I3DT_HIDE_BAR: os.system("polybar-msg cmd hide 1>/dev/null")
         for k in ['main', 'scnd']:
             save_container_layout(k, info)
@@ -530,37 +537,124 @@ def i3dt_tabbed_toggle(i3, e):
                         .format(glbl, info['glbl']['mark']), '')
 
 
-def i3dt_monocle_toggle(i3, e):
 
-    global I3DT_LAYOUT
+def i3dt_monocle_disable_commands(key, info):
+    """Generate a list of i3 commands to disable the monocle mode.
 
-    logging.info('Workspace::Monocle')
+    Parameters
+    ----------
+    key : str
+        The name of the split container of the focused window
+    info : dict
+        The current workspace information dictionary
 
-    info = get_workspace_info(i3)
-    if info['mode'] == 'manual' or not info['main']['id']:
-        return
+    Returns
+    -------
+    list
+        List of commands to run
+    """
+    commands = []
+    if not key and info['fullscreen']:
+        commands.append('fullscreen disable')
+    elif info[key]['id'] and info[key]['fullscreen']:
+        commands.append(restore_container_layout(key, info))
+        commands.append('[con_id={}] fullscreen toggle'.format(info[key]['id']))
+    return commands
 
-    key = None
-    if info['main']['id'] and info['focused'] in info['main']['children']:
-        key = 'main'
-    elif info['scnd']['id'] and info['focused'] in info['scnd']['children']:
-        key = 'scnd'
 
-    command = []
-    if not key:
-        command.append('fullscreen toggle')
-    elif not info[key]['fullscreen']:
+
+def i3dt_monocle_enable_commands(key, info):
+    """Generate a list of i3 commands to enable the monocle mode.
+
+    Parameters
+    ----------
+    key : str
+        The name of the split container of the focused window
+    info : dict
+        The current workspace information dictionary
+
+    Returns
+    -------
+    list
+        List of commands to run
+    """
+    commands = []
+    if not key and not info['fullscreen']:
+        commands.append('fullscreen enable')
+    elif key and info[key]['id'] and not info[key]['fullscreen']:
         save_container_layout(key, info)
-        if not info[key]['layout'] == 'tabbed':
-            command.append('layout tabbed')
-        command.append('[con_id={}] fullscreen toggle'\
-                .format(info[key]['id']))
-    else:
-        command.append(restore_container_layout(key, info))
-        command.append('[con_id={}] fullscreen toggle'\
-                .format(info[key]['id']))
+        if not info[key]['layout'] == 'tabbed'\
+                and (len(info[key]['children']) > 1):
+            commands.append('layout tabbed')
+        commands.append('[con_id={}] fullscreen toggle'.format(info[key]['id']))
+        if not I3DT_VARIANT == 'sway':
+            commands.append('focus child')
+    return commands
 
-    execute_commands(command, '')
+
+
+def i3dt_monocle_toggle_commands(key, info):
+    """Generate a list of i3 commands to toggle the monocle mode.
+
+    Parameters
+    ----------
+    key : str
+        The name of the split container of the focused window
+    info : dict
+        The current workspace information dictionary
+
+    Returns
+    -------
+    list
+        List of commands to run
+    """
+    commands = []
+    if i3dt_monocle_enabled(key, info):
+        commands = i3dt_monocle_disable_commands(key, info)
+    else:
+        commands = i3dt_monocle_enable_commands(key, info)
+    return commands
+
+
+
+def i3dt_monocle_enabled(key, info):
+    """Check if monocle mode is enabled.
+
+    Parameters
+    ----------
+    key : str
+        The name of the split container of the focused window
+    info : dict
+        The current workspace information dictionary
+
+    Returns
+    -------
+    bool
+        True if monocle mode is enabled, False otherwise.
+    """
+    enabled = False
+    if not key and info['fullscreen']:
+        enabled = True
+    elif key and info[key]['id'] and info[key]['fullscreen']:
+        enabled = True
+    return enabled
+
+
+
+def i3dt_monocle_toggle(i3):
+    """Toggle the monocle mode on or off
+
+    Parameters
+    ----------
+    i3 : i3ipc.Connection
+        An i3ipc connection
+    """
+    logging.info('Workspace::Monocle')
+    info = get_workspace_info(i3)
+    key = find_parent_container_key(info)
+    commands = i3dt_monocle_toggle_commands(key, info)
+    execute_commands(commands, '')
+
 
 
 def i3dt_mirror(i3):
@@ -754,7 +848,7 @@ def on_binding(i3, e):
         elif e.binding.command == 'nop i3dt_mirror':
             i3dt_mirror(i3)
         elif e.binding.command == 'nop i3dt_monocle_toggle':
-            i3dt_monocle_toggle(i3, e)
+            i3dt_monocle_toggle(i3)
         elif e.binding.command == 'nop i3dt_tabbed_toggle':
             i3dt_tabbed_toggle(i3, e)
     elif e.binding.command == 'kill':
