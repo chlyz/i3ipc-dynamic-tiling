@@ -65,7 +65,7 @@ Beyond the normal `i3` move commands, the following are implemented:
   within the original container.
 
 + `i3dt_move swap`: Swap the focused window with the focused window in other
-  container. The focus is kept within the original container.
+  container. The focus is moved to the main container.
 
 ### Secondary container position
 
