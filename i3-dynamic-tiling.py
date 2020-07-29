@@ -7,6 +7,8 @@ import argparse
 import logging
 import copy
 import os
+import signal
+import sys
 
 ###############################################################################
 # Argument parser                                                             #
@@ -933,6 +935,14 @@ def on_binding(i3, e):
         i3dt_layout(i3, e)
 
 
+def remove_opacity(i3):
+    for workspace in i3.get_tree().workspaces():
+        for w in workspace:
+            w.command("opacity 1")
+    i3.main_quit()
+    sys.exit(0)
+
+
 i3 = i3ipc.Connection()
 
 # Check if i3 or sway.
@@ -957,6 +967,9 @@ for c in leaves:
             command.append('[con_id={}] opacity {}'\
                     .format(c.id, I3DT_OPACITY_INACTIVE))
 execute_commands(command, '')
+
+for sig in [signal.SIGINT, signal.SIGTERM]:
+    signal.signal(sig, lambda signal, frame: remove_opacity(i3))
 
 try:
     i3.on(Event.BINDING, on_binding)
