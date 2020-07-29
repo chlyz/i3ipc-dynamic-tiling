@@ -11,10 +11,6 @@ If someone actually, against all odds, find this code, here is a gently
 warning: This code is to be considered _alpha_ and have only been tested in
 _Ubuntu 18.04 and 20.04_ with `i3 4.18.1` and `sway v1.5`.
 
-Unfortunately, the current version is not completely compliant with `sway` due
-to minor discrepancies in how split containers are created when compared with
-`i3`. This is possible to fix and development for `sway v1.5` is ongoing.
-
 ## Requirements
 
 This software relies on the on the `i3ipc` python package which can be obtained
@@ -31,8 +27,16 @@ to the tiling mode of `dwm` and `xmonad`. The containers have independent
 layouts and the _secondary_ container can be toggled to be on the side of the
 _main_ container of underneath it.
 
-There are also several alternatives implemented to mimic the monocle mode of
-`dwm` and `xmonad`.
+There are also several alternatives to mimic the monocle mode of
+`dwm` and `xmonad` implemented.
+
+For `sway` there is also the possibility to add opacity to the focused and
+inactive windows similar to
+[sway/contrib](https://github.com/swaywm/sway/blob/master/contrib/inactive-windows-transparency.py).
+The difference here is that here one can also apply transparency to the focused
+window and also that the `tabbed` and `stacked` layouts all get the focused
+opacity which leads to less flickering when focusing windows within the split
+container.
 
 ### Focus
 
@@ -122,12 +126,28 @@ can be set:
   ```bash
   python3 i3-dynamic-tiling.py --workspace-only 1 2 3
   ```
+
 - `--tabbed-hide-polybar`: Hide the polybar when in global tabbed or monocle
   mode. This require `enable-ipc = true` in your polybar config.
 
   ```bash
   python3 i3-dynamic-tiling.py --tabbed-hide-polybar true
   ```
+
+- `--opacity-focused`: Apply opacity to the focused window. Defaults to `1`,
+  that is, no opacity.
+
+  ```bash
+  python3 i3-dynamic-tiling.py --opacity-focused 0.8
+  ```
+
+- `--opacity-inactive`: Apply opacity to the inactive windows. Defaults to `1`,
+  that is, no opacity.
+
+  ```bash
+  python3 i3-dynamic-tiling.py --opacity-inactive 0.8
+  ```
+
 For debugging purposes, one can also change the level of logging with
 
 - `--log-level`: The level of logging.
