@@ -826,8 +826,12 @@ def on_window_new(i3, e):
             create_container(i3, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
-            execute_commands('[con_id={}] move to mark {}'\
+            commands = []
+            commands.append('[con_id={}] move to mark {}'\
                     .format(info['focused'], info['scnd']['mark']))
+            commands.append('[con_id={}] focus'\
+                    .format(info['focused']))
+            execute_commands(commands, '')
 
 
 def on_window_focus(i3, e):

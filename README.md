@@ -25,17 +25,15 @@ pip3 install i3ipc
 The software creates a _main_ and a _secondary_ container dynamically similar
 to the tiling mode of `dwm` and `xmonad`. The containers have independent
 layouts and the _secondary_ container can be toggled to be on the side of the
-_main_ container of underneath it.
-
-There are also several alternatives to mimic the monocle mode of
-`dwm` and `xmonad` implemented.
+_main_ container of underneath it. There are also several alternatives to mimic
+the monocle mode of `dwm` and `xmonad` implemented.
 
 For `sway` there is also the possibility to add opacity to the focused and
 inactive windows similar to
 [sway/contrib](https://github.com/swaywm/sway/blob/master/contrib/inactive-windows-transparency.py).
 The difference here is that here one can also apply transparency to the focused
 window and also that the `tabbed` and `stacked` layouts all get the focused
-opacity which leads to less flickering when focusing windows within the split
+opacity which leads to less flickering when switching focus within the split
 container.
 
 ### Focus
