@@ -2,7 +2,6 @@
 
 import i3ipc
 from i3ipc import Event
-import time
 import argparse
 import logging
 import copy
@@ -278,34 +277,38 @@ def rename_secondary_container(info):
 
 def restore_container_layout(key, info):
     global I3DT_LAYOUT
-    command = []
-    if info[key]['id']:
-        if info['name'] not in I3DT_LAYOUT:
-            I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
-        if key not in I3DT_LAYOUT[info['name']]:
-            I3DT_LAYOUT[info['name']][key] = 'splitv'
-        if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
-            if I3DT_LAYOUT[info['name']][key] == 'stacked':
-                command.append('[con_id={}] layout {}'
-                               .format(info[key]['children'][0], 'stacking'))
+    if not info[key]['id']:
+        return
+
+    if info['name'] not in I3DT_LAYOUT:
+        I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
+
+    if key not in I3DT_LAYOUT[info['name']]:
+        I3DT_LAYOUT[info['name']][key] = 'splitv'
+
+    commands = []
+    if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
+        if I3DT_LAYOUT[info['name']][key] == 'stacked':
+            commands.append('[con_id={}] layout {}'
+                            .format(info[key]['children'][0], 'stacking'))
+        else:
+            commands.append('[con_id={}] layout {}'
+                            .format(info[key]['children'][0],
+                                    I3DT_LAYOUT[info['name']][key]))
+        if I3DT_VARIANT == 'sway':
+            if I3DT_LAYOUT[info['name']][key] in ['splith', 'splitv']:
+                for c in info[key]['children']:
+                    if c == info['focused']:
+                        commands.append('[con_id={}] opacity {}'
+                                        .format(c, I3DT_OPACITY_ACTIVE))
+                    else:
+                        commands.append('[con_id={}] opacity {}'
+                                        .format(c, I3DT_OPACITY_INACTIVE))
             else:
-                command.append('[con_id={}] layout {}'
-                               .format(info[key]['children'][0],
-                                       I3DT_LAYOUT[info['name']][key]))
-            if I3DT_VARIANT == 'sway':
-                if I3DT_LAYOUT[info['name']][key] in ['splith', 'splitv']:
-                    for c in info[key]['children']:
-                        if c == info['focused']:
-                            command.append('[con_id={}] opacity {}'
-                                           .format(c, I3DT_OPACITY_ACTIVE))
-                        else:
-                            command.append('[con_id={}] opacity {}'
-                                           .format(c, I3DT_OPACITY_INACTIVE))
-                else:
-                    for c in info[key]['children']:
-                        command.append('[con_id={}] opacity {}'
-                                       .format(c, I3DT_OPACITY_ACTIVE))
-    return command
+                for c in info[key]['children']:
+                    commands.append('[con_id={}] opacity {}'
+                                    .format(c, I3DT_OPACITY_ACTIVE))
+    return commands
 
 
 def save_container_layout(key, info):
@@ -328,7 +331,7 @@ def find_parent_id(con_id, info):
 
 
 def create_container(i3, name, con_id=None):
-    """Create a split container for the specified container id
+    """Create a split container for the specified container id.
 
     Parameters
     ----------
@@ -339,8 +342,8 @@ def create_container(i3, name, con_id=None):
     con_id : int, optional
         The container id that should be contained (default is the
         focused container id)
-    """
 
+    """
     logging.debug('Create container: {}'.format(name))
 
     # Get workspace information.
@@ -395,7 +398,7 @@ def create_container(i3, name, con_id=None):
                 layout = info['main']['layout']
                 if (layout in ['splith', 'tabbed'] and move == 'left') \
                         or (layout in ['splitv', 'stacked'] and move == 'up'):
-                    for n in range(1, num + 1):
+                    for n in range(1, ind + 1):
                         command.append('move {}'.format(move))
 
             # Move outside the split container.
@@ -634,6 +637,7 @@ def i3dt_monocle_disable_commands(key, info):
     -------
     list
         List of commands to run
+
     """
     commands = []
     if not key and info['fullscreen']:
@@ -659,6 +663,7 @@ def i3dt_monocle_enable_commands(key, info):
     -------
     list
         List of commands to run
+
     """
     commands = []
     if not key and not info['fullscreen']:
@@ -693,6 +698,7 @@ def i3dt_monocle_toggle_commands(key, info):
     -------
     list
         List of commands to run
+
     """
     commands = []
     if i3dt_monocle_enabled(key, info):
@@ -716,6 +722,7 @@ def i3dt_monocle_enabled(key, info):
     -------
     bool
         True if monocle mode is enabled, False otherwise.
+
     """
     enabled = False
     if not key and info['fullscreen']:
@@ -726,12 +733,13 @@ def i3dt_monocle_enabled(key, info):
 
 
 def i3dt_monocle_toggle(i3):
-    """Toggle the monocle mode on or off
+    """Toggle the monocle mode on or off.
 
     Parameters
     ----------
     i3 : i3ipc.Connection
         An i3ipc connection
+
     """
     logging.info('Workspace::Monocle')
     info = get_workspace_info(i3)
@@ -859,7 +867,6 @@ def on_window_new(i3, e):
             or len(info['tiled']) < 2:
         return
 
-    command = []
     if not info['main']['id']:
         create_container(i3, 'main', info['tiled'][0])
         create_container(i3, 'scnd', info['tiled'][1])
