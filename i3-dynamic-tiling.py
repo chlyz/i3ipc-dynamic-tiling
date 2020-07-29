@@ -527,12 +527,14 @@ def i3dt_move(i3, e):
             command.append('[con_id={}] focus; focus child'\
                     .format(info['scnd']['id']))
     elif action == 'swap':
-        if info['focused'] in info['main']['children'] and info['scnd']['id']:
-            command.append('[con_id={}] focus'.format(info['scnd']['focus']))
-        # else:
-        #     command.append('[con_id={}] focus'.format(info['main']['focus']))
-        command.append('swap container with con_id {}'\
-                .format(info['focused']))
+        if info['scnd']['id']:
+            if info['focused'] in info['scnd']['children']:
+                command.append('[con_id={}] focus'\
+                        .format(info['main']['focus']))
+            command.append('swap container with con_id {}'\
+                    .format(info['scnd']['focus']))
+            command.append('[con_id={}] focus'\
+                    .format(info['scnd']['focus']))
 
     execute_commands(command, '')
 
@@ -808,7 +810,6 @@ def on_window_new(i3, e):
             or (e.container.name and e.container.name.startswith('polybar')) \
             or (e.container.floating and e.container.floating.endswith('on')) \
             or len(info['tiled']) < 2:
-        # or not e.container.name \
         return
 
     command = []
