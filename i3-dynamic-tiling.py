@@ -253,9 +253,13 @@ def restore_container_layout(key, info):
         if not key in I3DT_LAYOUT[info['name']]:
             I3DT_LAYOUT[info['name']][key] = 'splitv'
         if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
-            command.append('[con_id={}] layout {}'\
-                    .format(info[key]['children'][0],
-                        I3DT_LAYOUT[info['name']][key]))
+            if I3DT_LAYOUT[info['name']][key] == 'stacked':
+                command.append('[con_id={}] layout {}'\
+                        .format(info[key]['children'][0], 'stacking'))
+            else:
+                command.append('[con_id={}] layout {}'\
+                        .format(info[key]['children'][0],
+                            I3DT_LAYOUT[info['name']][key]))
             if I3DT_VARIANT == 'sway':
                 if I3DT_LAYOUT[info['name']][key] in ['splith', 'splitv']:
                     for c in info[key]['children']:
