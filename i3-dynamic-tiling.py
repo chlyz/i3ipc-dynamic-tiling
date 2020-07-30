@@ -841,9 +841,10 @@ def on_workspace_focus(ipc, event):
                 create_container(ipc, 'main', unmanaged[0])
                 create_container(ipc, 'scnd', unmanaged[1])
             info = get_workspace_info(ipc)
-            for i in info['unmanaged']:
-                command.append('[con_id={}] move to mark {}'
-                               .format(i, info['scnd']['mark']))
+            if info['scnd']['id']:
+                for i in info['unmanaged']:
+                    command.append('[con_id={}] move to mark {}'
+                                   .format(i, info['scnd']['mark']))
     else:
         if I3DT_HIDE_BAR:
             os.system("polybar-msg cmd show 1>/dev/null")
