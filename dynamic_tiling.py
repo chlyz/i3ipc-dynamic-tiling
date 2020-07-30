@@ -81,27 +81,25 @@ def get_workspace_info(ipc, workspace=None):
         workspace = focused.workspace()
 
     # Initialize the dictionary.
-    key = workspace.name
     info = {
         'mode': 'manual',
         'name': workspace.name,
         'layout': workspace.layout,
         'children': [],
         'tiled': [],
-        'floating': [],
         'descendants': [],
         'id': workspace.id,
         'focused': None,
         'fullscreen': False,
         'unmanaged': [],
         'glbl': {
-            'mark': 'I3DT_GLBL_{}'.format(key),
+            'mark': 'I3DT_GLBL_{}'.format(workspace.name),
             'id': None,
             'orientation': 'horizontal',
             'layout': 'splith'
             },
         'main': {
-            'mark': 'I3DT_MAIN_{}'.format(key),
+            'mark': 'I3DT_MAIN_{}'.format(workspace.name),
             'fullscreen': 0,
             'id': None,
             'focus': None,
@@ -109,7 +107,7 @@ def get_workspace_info(ipc, workspace=None):
             'children': []
             },
         'scnd': {
-            'mark': 'I3DT_SCND_{}'.format(key),
+            'mark': 'I3DT_SCND_{}'.format(workspace.name),
             'fullscreen': 0,
             'id': None,
             'focus': None,
@@ -119,15 +117,13 @@ def get_workspace_info(ipc, workspace=None):
         }
 
     # Collect workspace information.
-    if key not in DATA['workspace_ignore']:
+    if workspace.name not in DATA['workspace_ignore']:
         info['mode'] = 'tiled'
 
     info['descendants'] = workspace.descendants()
     for con in workspace.leaves():
         info['children'].append(con.id)
-        if con.floating and con.floating.endswith('on'):
-            info['floating'].append(con.id)
-        else:
+        if not con.floating or not con.floating.endswith('on'):
             info['tiled'].append(con.id)
 
     for con in info['descendants']:
@@ -139,20 +135,14 @@ def get_workspace_info(ipc, workspace=None):
             info['glbl']['id'] = con.id
             info['glbl']['orientation'] = con.orientation
             info['glbl']['layout'] = con.layout
-        elif info['main']['mark'] in marks:
-            info['main']['id'] = con.id
-            if con.focus:
-                info['main']['focus'] = con.focus[0]
-            info['main']['fullscreen'] = con.fullscreen_mode
-            info['main']['layout'] = con.layout
-            info['main']['children'] = list(d.id for d in con.leaves())
-        elif info['scnd']['mark'] in marks:
-            info['scnd']['id'] = con.id
-            if con.focus:
-                info['scnd']['focus'] = con.focus[0]
-            info['scnd']['fullscreen'] = con.fullscreen_mode
-            info['scnd']['layout'] = con.layout
-            info['scnd']['children'] = list(d.id for d in con.leaves())
+        for name in ['main', 'scnd']:
+            if info[name]['mark'] in marks:
+                info[name]['id'] = con.id
+                if con.focus:
+                    info[name]['focus'] = con.focus[0]
+                info[name]['fullscreen'] = con.fullscreen_mode
+                info[name]['layout'] = con.layout
+                info[name]['children'] = list(d.id for d in con.leaves())
 
     # Find unmanaged windows.
     info['unmanaged'] = copy.deepcopy(info['tiled'])
@@ -576,36 +566,26 @@ def i3dt_move(ipc, event):
         i3dt_move_swap(ipc, info)
 
 
-def i3dt_tabbed_toggle(ipc):
-    """Toggle the tabbed mode on or off.
-
-    Parameters
-    ----------
-    ipc : i3ipc.Connection
-        An i3ipc connection
-
-    """
-    logging.info('Workspace::Tabbed')
-
-    info = get_workspace_info(ipc)
-    if info['mode'] == 'manual':
-        return
-    if info['mode'] == 'monocle':
-        i3dt_monocle_toggle(ipc)
-        return
-    command = []
+def i3dt_tabbed_disable(ipc, info):
+    """Disable tabbed mode."""
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
         if DATA['hide_bar']:
             os.system("polybar-msg cmd show 1>/dev/null")
+        command = []
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'
                            .format(info['scnd']['id']))
         for k in ['main', 'scnd']:
             command.extend(restore_container_layout(k, info))
         execute_commands(ipc, command, '')
-    elif info['mode'] == 'tiled':
+
+
+def i3dt_tabbed_enable(ipc, info):
+    """Enable tabbed mode."""
+    if info['mode'] == 'tiled':
         if DATA['hide_bar']:
             os.system("polybar-msg cmd hide 1>/dev/null")
+        command = []
         for k in ['main', 'scnd']:
             save_container_layout(k, info)
             command.append('[con_id={}] layout tabbed'
@@ -622,6 +602,28 @@ def i3dt_tabbed_toggle(ipc):
                 glbl = info['descendants'][0].id
                 execute_commands(ipc, '[con_id={}] mark {}'
                                  .format(glbl, info['glbl']['mark']), '')
+
+
+def i3dt_tabbed_toggle(ipc):
+    """Toggle the tabbed mode on or off.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
+    logging.info('Workspace::Tabbed')
+    info = get_workspace_info(ipc)
+    if info['mode'] == 'manual':
+        return
+    if info['mode'] == 'monocle':
+        i3dt_monocle_toggle(ipc)
+        return
+    if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
+        i3dt_tabbed_disable(ipc, info)
+    elif info['mode'] == 'tiled':
+        i3dt_tabbed_enable(ipc, info)
 
 
 def i3dt_monocle_disable_commands(key, info):
