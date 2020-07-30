@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""A Python IPC implementation of dynamic tiling for the i3 window manager,
-trying to mimic the tiling behavior of the excellent DWM and XMONAD window
-managers, while utilizing the strengths of I3 and SWAY."""
+"""Dynamic tiling for the I3 and SWAY window managers.
+
+A Python IPC implementation of dynamic tiling for the i3 window manager, trying
+to mimic the tiling behavior of the excellent DWM and XMONAD window managers,
+while utilizing the strengths of I3 and SWAY.
+"""
 
 import argparse
 import copy
@@ -12,115 +15,45 @@ import sys
 import i3ipc
 from i3ipc import Event
 
-###############################################################################
-# Argument parser                                                             #
-###############################################################################
-
-parser = argparse.ArgumentParser(
-        description="""A Python IPC implementation of dynamic tiling for the i3
-        window manager, trying to mimic the tiling behavior of the excellent
-        DWM and XMONAD window managers, while utilizing the strengths of I3 and
-        SWAY.""")
-
-parser.add_argument(
-        '--log-level',
-        nargs='?',
-        default='info',
-        help="""The logging level: debug, info [default], warning, error, or
-        critical.""")
-
-parser.add_argument(
-        '--workspaces-ignore',
-        nargs='*',
-        default='',
-        help="""Workspaces to be handled manually as default i3, that is, not
-        handled dynamically.""")
-
-parser.add_argument(
-        '--workspaces-only',
-        nargs='*',
-        default='',
-        help="""Workspaces to be handled manually dynamical, that is, all other
-        workspaces will be handled manually as the default i3. This will
-        override the --workspaces-ignore option.""")
-
-parser.add_argument(
-        '--opacity-focused',
-        default='1',
-        help="""The opacity of the focused window.""")
-
-parser.add_argument(
-        '--opacity-inactive',
-        default='1',
-        help="""The opacity of the inactive windows.""")
-
-parser.add_argument(
-        '--tabbed-hide-polybar',
-        default='false',
-        help="""Hide the polybar when in tabbed mode [false, true].""")
-
-args = parser.parse_args()
-
-# Check the logging level argument.
-log_level_numeric = getattr(logging, args.log_level.upper(), None)
-if not isinstance(log_level_numeric, int):
-    raise ValueError('Invalid log level: {}'.format(args.log_level))
-
-if args.tabbed_hide_polybar.upper() not in ['FALSE', 'TRUE']:
-    raise ValueError('Invalid hide polybar tabbed argument: {}'
-                     .format(args.tabbed_hide_polybar))
-
-# Check the workspace ignore argument.
-msg = 'Invalid ignore workspace: {}'.format(args.workspaces_ignore)
-for w in args.workspaces_ignore:
-    if w not in map(str, range(1, 10)):
-        raise ValueError(msg)
-
-# Check the workspace only argument.
-for w in args.workspaces_only:
-    if w not in map(str, range(1, 10)):
-        raise ValueError('Invalid only workspace: {}'
-                         .format(args.workspaces_only))
 
 ###############################################################################
 # Logging                                                                     #
 ###############################################################################
 
 # Create the logger.
+
+# logging.basicConfig(
+#         format='%(asctime)s %(levelname)s: %(message)s',
+#         level=log_level_numeric)
+
 logging.basicConfig(
         format='%(asctime)s %(levelname)s: %(message)s',
-        level=log_level_numeric)
+        level=0)
 
 ###############################################################################
 # Global variables                                                            #
 ###############################################################################
 
-wm_variant = None
-OPACITY_FOCUSED = float(args.opacity_focused)
-opacity_inactive = float(args.opacity_inactive)
+DATA = {
+    'initialized': False,
+    'opacity': {
+        'focused': 1.0,
+        'inactive': 1.0
+        },
+    'variant': None,
+    'hide_bar': False,
+    'workspace_ignore': []
+    }
 I3DT_LAYOUT = dict()
-I3DT_GLBL_MARK = 'I3DT_GLBL_{}'
-I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
-I3DT_SCND_MARK = 'I3DT_SCND_{}'
-I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
 FOCUS = {'previous': None, 'current': None}
-I3DT_HIDE_BAR = args.tabbed_hide_polybar.upper() == 'TRUE'
-
-# Workspaces to ignore.
-I3DT_WORKSPACE_IGNORE = []
-if args.workspaces_only:
-    I3DT_WORKSPACE_IGNORE = list(map(str, range(1, 10)))
-    for w in args.workspaces_only:
-        I3DT_WORKSPACE_IGNORE.remove(w)
-elif args.workspaces_ignore:
-    I3DT_WORKSPACE_IGNORE = args.workspaces_ignore
 
 
 ###############################################################################
 # Helper functions                                                            #
 ###############################################################################
 
-def execute_commands(commands, preamble='Executing:'):
+def execute_commands(ipc, commands, preamble='Executing:'):
+    """Execute a chain of commands."""
     if commands:
         if preamble:
             logging.debug(preamble)
@@ -140,8 +73,8 @@ def execute_commands(commands, preamble='Executing:'):
     return []
 
 
-def get_workspace_info(ipc, workspace=[]):
-
+def get_workspace_info(ipc, workspace=None):
+    """Collect the state of the window manager."""
     if not workspace:
         tree = ipc.get_tree()
         focused = tree.find_focused()
@@ -149,10 +82,10 @@ def get_workspace_info(ipc, workspace=[]):
 
     # Initialize the dictionary.
     key = workspace.name
-    main_mark = I3DT_MAIN_MARK.format(key)
-    scnd_mark = I3DT_SCND_MARK.format(key)
-    glbl_mark = I3DT_GLBL_MARK.format(key)
-    tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
+    main_mark = 'I3DT_MAIN_{}'.format(key)
+    scnd_mark = 'I3DT_SCND_{}'.format(key)
+    glbl_mark = 'I3DT_GLBL_{}'.format(key)
+    tbbd_mark = 'I3DT_SCND_{}_TBBD'.format(key)
     info = {
         'mode': 'manual',
         'name': workspace.name,
@@ -196,7 +129,7 @@ def get_workspace_info(ipc, workspace=[]):
         }
 
     # Collect workspace information.
-    if key not in I3DT_WORKSPACE_IGNORE:
+    if key not in DATA['workspace_ignore']:
         info['mode'] = 'tiled'
 
     info['descendants'] = workspace.descendants()
@@ -269,6 +202,7 @@ def get_workspace_info(ipc, workspace=[]):
 
 
 def rename_secondary_container(info):
+    """Rename the secondary container to the main container."""
     command = []
     command.append('[con_id={}] unmark {}'
                    .format(info['scnd']['id'], info['scnd']['mark']))
@@ -278,6 +212,7 @@ def rename_secondary_container(info):
 
 
 def restore_container_layout(key, info):
+    """Restore the saved container layout."""
     if not info[key]['id']:
         return []
 
@@ -293,24 +228,26 @@ def restore_container_layout(key, info):
             commands.append('[con_id={}] layout {}'
                             .format(info[key]['children'][0],
                                     I3DT_LAYOUT[info['name']][key]))
-        if wm_variant == 'sway':
+        if DATA['variant'] == 'sway':
             if I3DT_LAYOUT[info['name']][key] in ['splith', 'splitv']:
                 for cid in info[key]['children']:
                     if cid == info['focused']:
                         commands.append('[con_id={}] opacity {}'
-                                        .format(cid, OPACITY_FOCUSED))
+                                        .format(cid,
+                                                DATA['opacity']['focused']))
                     else:
                         commands.append('[con_id={}] opacity {}'
-                                        .format(cid, opacity_inactive))
+                                        .format(cid,
+                                                DATA['opacity']['inactive']))
             else:
                 for cid in info[key]['children']:
                     commands.append('[con_id={}] opacity {}'
-                                    .format(cid, OPACITY_FOCUSED))
+                                    .format(cid, DATA['opacity']['focused']))
     return commands
 
 
 def save_container_layout(key, info):
-    global I3DT_LAYOUT
+    """Save the container layout."""
     if info['name'] not in I3DT_LAYOUT:
         I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
     if info[key]['id']:
@@ -318,6 +255,7 @@ def save_container_layout(key, info):
 
 
 def find_parent_id(con_id, info):
+    """Find the parent container id."""
     parent = None
     containers = (con for con in info['descendants'] if not con.name)
     for con in containers:
@@ -376,28 +314,31 @@ def create_container(ipc, name, con_id=None):
                     move = 'down'
 
                 # Move the to the edge of the container.
-                for [ind, cid] in enumerate(info['main']['children']):
+                index = 0
+                for cid in info['main']['children']:
                     if info['focused'] == cid:
                         break
+                    index += 1
                 layout = info['main']['layout']
                 if (layout in ['splith', 'tabbed'] and move == 'right') or \
                         (layout in ['splitv', 'stacked'] and move == 'down'):
-                    for num in range(1, len(info['main']['children']) - ind):
-                        command.append('move {}'.format(move))
+                    command.extend(['move {}'.format(move)]
+                                   * (len(info['main']['children']) - index))
             else:
                 move = 'left'
                 if info['layout'] in ['splitv', 'stacked']:
                     move = 'up'
 
                 # Move the to the edge of the container.
-                for [ind, cid] in enumerate(info['scnd']['children']):
+                index = 0
+                for cid in info['scnd']['children']:
                     if info['focused'] == cid:
                         break
+                    index += 1
                 layout = info['main']['layout']
                 if (layout in ['splith', 'tabbed'] and move == 'left') \
                         or (layout in ['splitv', 'stacked'] and move == 'up'):
-                    for num in range(1, ind + 1):
-                        command.append('move {}'.format(move))
+                    command.extend(['move {}'.format(move)] * (index + 1))
 
             # Move outside the split container.
             command.append('move {}'.format(move))
@@ -409,7 +350,7 @@ def create_container(ipc, name, con_id=None):
                 command.append('resize set width 50 ppt')
     else:
         command.append('[con_id={}] splitv'.format(con_id))
-    command = execute_commands(command, '')
+    command = execute_commands(ipc, command, '')
 
     # Find and mark the newly created split container.
     info = get_workspace_info(ipc)
@@ -426,10 +367,20 @@ def create_container(ipc, name, con_id=None):
             command.append('[con_id={}] swap container with con_id {}'
                            .format(parent, info['scnd']['id']))
 
-    command = execute_commands(command, '')
+    command = execute_commands(ipc, command, '')
 
 
 def find_parent_container_key(info, con_id=None):
+    """Find parent the container key.
+
+    Parameters
+    ----------
+    info : dict
+        The state of the window manager
+    con_id : int, optional
+        A container id (default focused)
+
+    """
     key = None
     if not con_id:
         con_id = info['focused']
@@ -441,6 +392,14 @@ def find_parent_container_key(info, con_id=None):
 
 
 def find_parent_container(info):
+    """Find parent the container.
+
+    Parameters
+    ----------
+    info : dict
+        The state of the window manager
+
+    """
     parent = None
     children = []
     if info['focused'] in info['main']['children']:
@@ -459,6 +418,16 @@ def find_parent_container(info):
 
 
 def find_container_index(info, con_ids=None):
+    """Find the container index in a list.
+
+    Parameters
+    ----------
+    info : dict
+        The state of the window manager
+    con_ids : list, optional
+        A list of container id's
+
+    """
     if not con_ids:
         con_ids = info['tiled']
     ind = 0
@@ -470,6 +439,16 @@ def find_container_index(info, con_ids=None):
 
 
 def get_movement(layout, direction):
+    """Convert next/prev to an i3/sway movement.
+
+    Parameters
+    ----------
+    layout : str
+        The layout of the container
+    direction : str
+        The movement next/prev to convert
+
+    """
     if direction == 'next':
         if layout in ['splith', 'tabbed']:
             movement = 'right'
@@ -484,6 +463,16 @@ def get_movement(layout, direction):
 
 
 def i3dt_focus(ipc, event):
+    """Different window focus events.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.BindingEvent
+        An i3ipc binding event
+
+    """
     action = event.binding.command.split(" ")[-1]
     logging.info('Window::Focus::{}'.format(action.title()))
     info = get_workspace_info(ipc)
@@ -521,10 +510,20 @@ def i3dt_focus(ipc, event):
             command.append('[con_id={}] focus'.format(FOCUS['previous']))
         else:
             logging.warning('Window::Focus::Toggle::No previous window')
-    execute_commands(command, '')
+    execute_commands(ipc, command, '')
 
 
 def i3dt_move(ipc, event):
+    """Different window movements.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.BindingEvent
+        An i3ipc binding event
+
+    """
     action = event.binding.command.split(" ")[-1]
     logging.info('Window::Move::{}'.format(action.title()))
     info = get_workspace_info(ipc)
@@ -575,13 +574,20 @@ def i3dt_move(ipc, event):
             command.append('[con_id={}] focus'
                            .format(info['scnd']['focus']))
 
-    execute_commands(command, '')
+    execute_commands(ipc, command, '')
 
 
-def i3dt_tabbed_toggle(ipc, event):
+def i3dt_tabbed_toggle(ipc):
+    """Toggle the tabbed mode on or off.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
     logging.info('Workspace::Tabbed')
 
-    global I3DT_LAYOUT
     info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
@@ -590,16 +596,16 @@ def i3dt_tabbed_toggle(ipc, event):
         return
     command = []
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
-        if I3DT_HIDE_BAR:
+        if DATA['hide_bar']:
             os.system("polybar-msg cmd show 1>/dev/null")
         if info['scnd']['id']:
             command.append('[con_id={}] layout toggle split'
                            .format(info['scnd']['id']))
         for k in ['main', 'scnd']:
             command.extend(restore_container_layout(k, info))
-        execute_commands(command, '')
+        execute_commands(ipc, command, '')
     elif info['mode'] == 'tiled':
-        if I3DT_HIDE_BAR:
+        if DATA['hide_bar']:
             os.system("polybar-msg cmd hide 1>/dev/null")
         for k in ['main', 'scnd']:
             save_container_layout(k, info)
@@ -608,14 +614,14 @@ def i3dt_tabbed_toggle(ipc, event):
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'
                            .format(info['scnd']['id']))
-        execute_commands(command, '')
+        execute_commands(ipc, command, '')
 
         # Find the newly created split container and mark it.
-        if wm_variant != 'sway':
+        if DATA['variant'] != 'sway':
             info = get_workspace_info(ipc)
             if not info['glbl']['id']:
                 glbl = info['descendants'][0].id
-                execute_commands('[con_id={}] mark {}'
+                execute_commands(ipc, '[con_id={}] mark {}'
                                  .format(glbl, info['glbl']['mark']), '')
 
 
@@ -669,13 +675,13 @@ def i3dt_monocle_enable_commands(key, info):
         if info[key]['layout'] != 'tabbed' \
                 and (len(info[key]['children']) > 1):
             commands.append('layout tabbed')
-            if wm_variant == 'sway':
-                for c in info[key]['children']:
+            if DATA['variant'] == 'sway':
+                for cid in info[key]['children']:
                     commands.append('[con_id={}] opacity {}'
-                                    .format(c, OPACITY_FOCUSED))
+                                    .format(cid, DATA['opacity']['focused']))
         commands.append('[con_id={}] fullscreen toggle'
                         .format(info[key]['id']))
-        if wm_variant != 'sway':
+        if DATA['variant'] != 'sway':
             commands.append('focus child')
     return commands
 
@@ -741,18 +747,40 @@ def i3dt_monocle_toggle(ipc):
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     commands = i3dt_monocle_toggle_commands(key, info)
-    execute_commands(commands, '')
+    execute_commands(ipc, commands, '')
 
 
 def i3dt_mirror(ipc):
+    """Mirror the secondary container.
+
+    This function handles the moving the secondary container from one side the
+    main container to the other.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
     logging.info('Workspace::Mirror')
     info = get_workspace_info(ipc)
     if info['scnd']['id'] and info['mode'] == 'tiled':
-        execute_commands('[con_id={}] swap container with con_id {}'
+        execute_commands(ipc, '[con_id={}] swap container with con_id {}'
                          .format(info['main']['id'], info['scnd']['id']))
 
 
 def i3dt_reflect(ipc):
+    """Reflect the secondary container.
+
+    This function handles the moving the secondary container between a
+    horizontal and vertical position relative to the main container.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
     logging.info('Workspace::Reflect')
     info = get_workspace_info(ipc)
     command = []
@@ -762,17 +790,17 @@ def i3dt_reflect(ipc):
         command.append('[con_id={}] layout toggle split'
                        .format(info['scnd']['id']))
         # Sway does not create a global split container as i3 does.
-        if wm_variant != 'sway' and not info['glbl']['id']:
-            command = execute_commands(command)
+        if DATA['variant'] != 'sway' and not info['glbl']['id']:
+            command = execute_commands(ipc, command)
             info = get_workspace_info(ipc)
             command.append('[con_id={}] mark {}'
                            .format(info['descendants'][0].id,
                                    info['glbl']['mark']))
         # Update the layout of the containers.
-        command = execute_commands(command)
+        command = execute_commands(ipc, command)
         info = get_workspace_info(ipc)
         orientation = 'horizontal'
-        if wm_variant == 'sway' and info['layout'] == 'splitv':
+        if DATA['variant'] == 'sway' and info['layout'] == 'splitv':
             orientation = 'vertical'
         else:
             orientation = info['glbl']['orientation']
@@ -782,10 +810,23 @@ def i3dt_reflect(ipc):
                     or (layout == 'splith' and orientation == 'horizontal'):
                 command.append('[con_id={}] layout toggle split'
                                .format(info[k]['children'][0]))
-        execute_commands(command, '')
+        execute_commands(ipc, command, '')
 
 
-def i3dt_kill(ipc, event):
+def i3dt_kill(ipc):
+    """Close the focused window.
+
+    This function handles the special case of closing a window when there is a
+    single window in the main contianer when there still is a secondary
+    container.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
+    # pylint: disable=unused-argument
     logging.info('Window::Close')
     info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
@@ -796,10 +837,20 @@ def i3dt_kill(ipc, event):
             and info['scnd']['id']:
         command.append('[con_id={}] swap container with con_id {}'
                        .format(info['focused'], info['scnd']['children'][0]))
-    execute_commands(command)
+    execute_commands(ipc, command)
 
 
 def on_window_close(ipc, event):
+    """React on window close event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WindowEvent
+        An i3ipc window event
+
+    """
     logging.info('Window::Close')
     floating = event.container.floating
     if floating and floating.endswith('on'):
@@ -815,20 +866,29 @@ def on_window_close(ipc, event):
             con_id = info['scnd']['children'][0]
             create_container(ipc, 'main', con_id)
             command.append('[con_id={}] focus'.format(con_id))
-    execute_commands(command)
+    execute_commands(ipc, command)
 
 
 def on_workspace_focus(ipc, event):
-    global I3DT_LAYOUT
+    """React on workspace focus event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WorkspaceEvent
+        An i3ipc workspace event
+
+    """
     logging.info('Workspace::Focus::{}'.format(event.current.name))
     info = get_workspace_info(ipc, event.current)
     command = []
     if info['mode'] != 'manual':
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
-            if I3DT_HIDE_BAR:
+            if DATA['hide_bar']:
                 os.system("polybar-msg cmd hide 1>/dev/null")
         else:
-            if I3DT_HIDE_BAR:
+            if DATA['hide_bar']:
                 os.system("polybar-msg cmd show 1>/dev/null")
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
@@ -846,13 +906,22 @@ def on_workspace_focus(ipc, event):
                     command.append('[con_id={}] move to mark {}'
                                    .format(i, info['scnd']['mark']))
     else:
-        if I3DT_HIDE_BAR:
+        if DATA['hide_bar']:
             os.system("polybar-msg cmd show 1>/dev/null")
-    execute_commands(command)
+    execute_commands(ipc, command)
 
 
 def on_window_new(ipc, event):
+    """React on window new event.
 
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WindowEvent
+        An i3ipc window event
+
+    """
     logging.info('Window::New')
     info = get_workspace_info(ipc)
 
@@ -871,7 +940,7 @@ def on_window_new(ipc, event):
             index = 0
             if info['tbbd']['indices']:
                 index = max(info['tbbd']['indices']) + 1
-            execute_commands('mark {}'
+            execute_commands(ipc, 'mark {}'
                              .format(info['tbbd']['mark'] + str(index)))
         else:
             create_container(ipc, 'scnd')
@@ -882,15 +951,25 @@ def on_window_new(ipc, event):
                             .format(info['focused'], info['scnd']['mark']))
             commands.append('[con_id={}] focus'
                             .format(info['focused']))
-            execute_commands(commands, '')
+            execute_commands(ipc, commands, '')
 
 
 def on_window_focus(ipc, event):
+    """React on window focus event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WindowEvent
+        An i3ipc window event
+
+    """
     logging.info('Window::Focus')
     FOCUS['previous'] = FOCUS['current']
     FOCUS['current'] = event.container.id
     command = []
-    if wm_variant == 'sway' and FOCUS['previous']:
+    if DATA['variant'] == 'sway' and FOCUS['previous']:
         info = get_workspace_info(ipc)
         prev_key = find_parent_container_key(info, FOCUS['previous'])
         if prev_key:
@@ -899,13 +978,24 @@ def on_window_focus(ipc, event):
             if curr_key != prev_key \
                     or info[curr_key]['layout'] in ['splith', 'splitv']:
                 command.append('[con_id={}] opacity {}'
-                               .format(FOCUS['previous'], opacity_inactive))
+                               .format(FOCUS['previous'],
+                                       DATA['opacity']['inactive']))
         command.append('[con_id={}] opacity {}'
-                       .format(FOCUS['current'], OPACITY_FOCUSED))
-        execute_commands(command, '')
+                       .format(FOCUS['current'], DATA['opacity']['focused']))
+        execute_commands(ipc, command, '')
 
 
 def on_window_floating(ipc, event):
+    """React on window floating toggle event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WindowEvent
+        An i3ipc window event
+
+    """
     logging.info('Window::Floating')
     info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
@@ -931,10 +1021,21 @@ def on_window_floating(ipc, event):
             command.extend(rename_secondary_container(info))
         else:
             create_container(ipc, 'main', info['scnd']['children'][0])
-    execute_commands(command)
+    execute_commands(ipc, command)
 
 
 def on_window_move(ipc, event):
+    """React on window move event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.WindowEvent
+        An i3ipc window event
+
+    """
+    # pylint: disable=unused-argument
     logging.info('Window:move')
     info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
@@ -945,30 +1046,51 @@ def on_window_move(ipc, event):
             command.extend(rename_secondary_container(info))
         else:
             create_container(ipc, 'main', info['scnd']['children'][0])
-    execute_commands(command)
+    execute_commands(ipc, command)
 
 
 def i3dt_layout(ipc, event):
+    """React on layout binding event.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.BindingEvent
+        An i3ipc binding event
+
+    """
+    # pylint: disable=unused-argument
     logging.info('Container::Layout')
-    if wm_variant != 'sway':
-        execute_commands(['layout toggle tabbed split'], '')
+    if DATA['variant'] != 'sway':
+        execute_commands(ipc, ['layout toggle tabbed split'], '')
         return
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     if key:
         command = []
-        opacity = OPACITY_FOCUSED
+        opacity = DATA['opacity']['focused']
         if info[key]['layout'] in ['splith', 'splitv']:
-            opacity = opacity_inactive
+            opacity = DATA['opacity']['inactive']
         for cid in info[key]['children']:
             if cid != info['focused']:
                 command.append('[con_id={}] opacity {}'.format(cid, opacity))
         command.append('[con_id={}] opacity {}'
-                       .format(info['focused'], OPACITY_FOCUSED))
-        execute_commands(command, '')
+                       .format(info['focused'], DATA['opacity']['focused']))
+        execute_commands(ipc, command, '')
 
 
 def on_binding(ipc, event):
+    """React on selected binding events.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+    event : i3ipc.BindingEvent
+        An i3ipc binding event
+
+    """
     if event.binding.command.startswith('nop'):
         if event.binding.command.startswith('nop i3dt_focus'):
             i3dt_focus(ipc, event)
@@ -981,57 +1103,156 @@ def on_binding(ipc, event):
         elif event.binding.command == 'nop i3dt_monocle_toggle':
             i3dt_monocle_toggle(ipc)
         elif event.binding.command == 'nop i3dt_tabbed_toggle':
-            i3dt_tabbed_toggle(ipc, event)
+            i3dt_tabbed_toggle(ipc)
     elif event.binding.command == 'kill':
-        i3dt_kill(ipc, event)
+        i3dt_kill(ipc)
     elif event.binding.command == 'layout toggle tabbed split':
         i3dt_layout(ipc, event)
 
 
 def remove_opacity(ipc):
+    """Remove opacity from all windows.
+
+    Parameters
+    ----------
+    ipc : i3ipc.Connection
+        An i3ipc connection
+
+    """
     for workspace in ipc.get_tree().workspaces():
-        for w in workspace:
-            w.command("opacity 1")
+        for wrk in workspace:
+            wrk.command("opacity 1")
     ipc.main_quit()
     sys.exit(0)
 
 
-ipc = i3ipc.Connection()
+def init(ipc):
+    """Initialize the module."""
+    # Check if i3 or sway.
+    if not DATA['initialized']:
+        args = parse_arguments()
+        DATA['opacity']['focused'] = float(args.opacity_focused)
+        DATA['opacity']['inactive'] = float(args.opacity_inactive)
+        DATA['hide_bar'] = args.tabbed_hide_polybar.upper() == 'TRUE'
 
-# Check if i3 or sway.
-version = ipc.get_version().ipc_data
-if 'variant' in version:
-    wm_variant = version['variant']
-else:
-    wm_variant = 'i3'
+        # Workspaces to ignore.
+        if args.workspaces_only:
+            DATA['workspace_ignore'] = list(map(str, range(1, 10)))
+            for wrk in args.workspaces_only:
+                DATA['workspace_ignore'].remove(wrk)
+        elif args.workspaces_ignore:
+            DATA['workspace_ignore'] = args.workspaces_ignore
+        DATA['initialized'] = True
 
-# Find the focused window and set opacity for all windows.
-command = []
-for con in ipc.get_tree().leaves():
-    if con.focused:
-        FOCUS['current'] = con.id
-        if wm_variant == 'sway':
-            command.append(
-                '[con_id={}] opacity {}'
-                .format(con.id, OPACITY_FOCUSED))
-    else:
-        if wm_variant == 'sway':
-            command.append(
-                '[con_id={}] opacity {}'
-                .format(con.id, opacity_inactive))
-execute_commands(command, '')
+        version = ipc.get_version().ipc_data
+        if 'variant' in version:
+            DATA['variant'] = version['variant']
+        else:
+            DATA['variant'] = 'i3'
 
-for sig in [signal.SIGINT, signal.SIGTERM]:
-    signal.signal(sig, lambda signal, frame: remove_opacity(ipc))
+        # Find the focused window and set opacity for all windows.
+        command = []
+        for con in ipc.get_tree().leaves():
+            if con.focused:
+                FOCUS['current'] = con.id
+                if DATA['variant'] == 'sway':
+                    command.append(
+                        '[con_id={}] opacity {}'
+                        .format(con.id, DATA['opacity']['focused']))
+            else:
+                if DATA['variant'] == 'sway':
+                    command.append(
+                        '[con_id={}] opacity {}'
+                        .format(con.id, DATA['opacity']['inactive']))
+        execute_commands(ipc, command, '')
 
-try:
-    ipc.on(Event.BINDING, on_binding)
-    ipc.on(Event.WINDOW_CLOSE, on_window_close)
-    ipc.on(Event.WINDOW_FLOATING, on_window_floating)
-    ipc.on(Event.WINDOW_FOCUS, on_window_focus)
-    ipc.on(Event.WINDOW_MOVE, on_window_move)
-    ipc.on(Event.WINDOW_NEW, on_window_new)
-    ipc.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
-    ipc.main()
-finally:
-    ipc.main_quit()
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="""A Python IPC implementation of dynamic tiling for the i3
+        window manager, trying to mimic the tiling behavior of the excellent
+        DWM and XMONAD window managers, while utilizing the strengths of I3 and
+        SWAY.""")
+
+    parser.add_argument(
+        '--log-level',
+        nargs='?',
+        default='info',
+        help="""The logging level: debug, info [default], warning, error, or
+        critical.""")
+
+    parser.add_argument(
+        '--workspaces-ignore',
+        nargs='*',
+        default='',
+        help="""Workspaces to be handled manually as default i3, that is, not
+        handled dynamically.""")
+
+    parser.add_argument(
+        '--workspaces-only',
+        nargs='*',
+        default='',
+        help="""Workspaces to be handled manually dynamical, that is, all other
+        workspaces will be handled manually as the default i3. This will
+        override the --workspaces-ignore option.""")
+
+    parser.add_argument(
+        '--opacity-focused',
+        default='1',
+        help="""The opacity of the focused window.""")
+
+    parser.add_argument(
+        '--opacity-inactive',
+        default='1',
+        help="""The opacity of the inactive windows.""")
+
+    parser.add_argument(
+        '--tabbed-hide-polybar',
+        default='false',
+        help="""Hide the polybar when in tabbed mode [false, true].""")
+
+    args = parser.parse_args()
+
+    # Check the logging level argument.
+    log_level_numeric = getattr(logging, args.log_level.upper(), None)
+    if not isinstance(log_level_numeric, int):
+        raise ValueError('Invalid log level: {}'.format(args.log_level))
+
+    if args.tabbed_hide_polybar.upper() not in ['FALSE', 'TRUE']:
+        raise ValueError('Invalid hide polybar tabbed argument: {}'
+                         .format(args.tabbed_hide_polybar))
+
+    # Check the workspace ignore argument.
+    msg = 'Invalid ignore workspace: {}'.format(args.workspaces_ignore)
+    for wrk in args.workspaces_ignore:
+        if wrk not in map(str, range(1, 10)):
+            raise ValueError(msg)
+
+    # Check the workspace only argument.
+    for wrk in args.workspaces_only:
+        if wrk not in map(str, range(1, 10)):
+            raise ValueError('Invalid only workspace: {}'
+                             .format(args.workspaces_only))
+    return args
+
+
+if __name__ == "__main__":
+    IPC = i3ipc.Connection()
+
+    init(IPC)
+
+    for sig in [signal.SIGINT, signal.SIGTERM]:
+        signal.signal(sig, lambda signal, frame: remove_opacity(IPC))
+
+    try:
+        IPC.on(Event.BINDING, on_binding)
+        IPC.on(Event.WINDOW_CLOSE, on_window_close)
+        IPC.on(Event.WINDOW_FLOATING, on_window_floating)
+        IPC.on(Event.WINDOW_FOCUS, on_window_focus)
+        IPC.on(Event.WINDOW_MOVE, on_window_move)
+        IPC.on(Event.WINDOW_NEW, on_window_new)
+        IPC.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
+        IPC.main()
+    finally:
+        IPC.main_quit()
