@@ -1,4 +1,4 @@
-# i3-dynamic-tiling
+# i3ipc-dynamic-tiling
 
 A Python IPC implementation of dynamic tiling for the [i3](https://i3wm.org/)
 and [sway](https://swaywm.org/) window managers, trying to mimic the tiling
@@ -239,9 +239,10 @@ dynamic/automatic tiling in other window managers like `dwm`, `xmonad`, or
 talk with `i3` and `sway` that can be used to force the behavior of dynamic
 tiling.
 
-This code is written in python using the i3 IPC framework with inspiration from
-the ideas implemented in [budlabs i3ass](https://github.com/budlabs/i3ass). I
-highly recommend the videos of
-[budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ) on my
+This code is written in python using the
+[i3ipc-python](https://github.com/altdesktop/i3ipc-python) framework with
+inspiration from the ideas implemented in
+[budlabs i3ass](https://github.com/budlabs/i3ass). I highly recommend the videos
+of [budlabs](https://www.youtube.com/channel/UCi8XrDg1bK_MJ0goOnbpTMQ) on my
 favourite youtube channel.
 
