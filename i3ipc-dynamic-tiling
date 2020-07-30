@@ -1,0 +1,6 @@
+#!/bin/sh
+
+if ps -A --format cmd | grep -E "^python.*i3ipc_dynamic_tiling.py" 1> /dev/null; then
+    kill $(ps -A --format pid,cmd | grep -E "python.*i3ipc_dynamic_tiling.py" | grep -v "grep" | grep -oP "\d+" | head -n 1)
+fi
+$(python3 $(dirname "$0")/i3ipc_dynamic_tiling.py "$@")
