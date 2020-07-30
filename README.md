@@ -103,18 +103,18 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 ## Configuration
 
-The configuration of _i3-dynamic-tiling_ is done in two ways:
+The configuration is done in two ways:
 
 ### Argument passing
 
-When execution the `python3 i3-dynamic-tiling.py` there are some options the
+When execution the `python3 dynamic_tiling.py` there are some options the
 can be set:
 
 - `--workspaces-ignore`: Workspaces to ignore, that is, use `i3` defaults and
   do not apply dynamic tiling for these workspaces. Example:
 
   ```bash
-  python3 i3-dynamic-tiling.py --workspace-ignore 1 2 3
+  python3 dynamic_tiling.py --workspace-ignore 1 2 3
   ```
 
 - `--workspaces-only`: Only apply dynamic tiling to these workspaces and let
@@ -122,28 +122,28 @@ can be set:
   `--workspaces-ignore`. Example:
 
   ```bash
-  python3 i3-dynamic-tiling.py --workspace-only 1 2 3
+  python3 dynamic_tiling.py --workspace-only 1 2 3
   ```
 
 - `--tabbed-hide-polybar`: Hide the polybar when in global tabbed or monocle
   mode. This require `enable-ipc = true` in your polybar config.
 
   ```bash
-  python3 i3-dynamic-tiling.py --tabbed-hide-polybar true
+  python3 dynamic_tiling.py --tabbed-hide-polybar true
   ```
 
 - `--opacity-focused`: Apply opacity to the focused window. Defaults to `1`,
   that is, no opacity.
 
   ```bash
-  python3 i3-dynamic-tiling.py --opacity-focused 0.8
+  python3 dynamic_tiling.py --opacity-focused 0.8
   ```
 
 - `--opacity-inactive`: Apply opacity to the inactive windows. Defaults to `1`,
   that is, no opacity.
 
   ```bash
-  python3 i3-dynamic-tiling.py --opacity-inactive 0.8
+  python3 dynamic_tiling.py --opacity-inactive 0.8
   ```
 
 For debugging purposes, one can also change the level of logging with
@@ -151,7 +151,7 @@ For debugging purposes, one can also change the level of logging with
 - `--log-level`: The level of logging.
 
   ```bash
-  python3 i3-dynamic-tiling.py --log-level debug
+  python3 dynamic_tiling.py --log-level debug
   ```
 
 ### Configuration file

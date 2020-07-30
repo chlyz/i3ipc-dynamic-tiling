@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if ps -A --format cmd | grep -E "^python.*i3-dynamic-tiling.py" 1> /dev/null; then
-    kill $(ps -A --format pid,cmd | grep -E "python.*i3-dynamic-tiling.py" | grep -v "grep" | grep -oP "\d+" | head -n 1)
+if ps -A --format cmd | grep -E "^python.*dynamic_tiling.py" 1> /dev/null; then
+    kill $(ps -A --format pid,cmd | grep -E "python.*dynamic_tiling.py" | grep -v "grep" | grep -oP "\d+" | head -n 1)
 fi
-$(python3 $(dirname "$0")/i3-dynamic-tiling.py "$@")
+$(python3 $(dirname "$0")/dynamic_tiling.py "$@")
