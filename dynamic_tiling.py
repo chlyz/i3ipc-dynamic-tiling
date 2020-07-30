@@ -193,10 +193,10 @@ def get_workspace_info(ipc, workspace=None):
 
     # Find unmanaged windows.
     info['unmanaged'] = copy.deepcopy(info['tiled'])
-    for i in info['main']['children']:
-        info['unmanaged'].remove(i)
-    for i in info['scnd']['children']:
-        info['unmanaged'].remove(i)
+    for cid in info['main']['children']:
+        info['unmanaged'].remove(cid)
+    for cid in info['scnd']['children']:
+        info['unmanaged'].remove(cid)
 
     return info
 
@@ -462,6 +462,52 @@ def get_movement(layout, direction):
     return movement
 
 
+def i3dt_focus_next_prev(ipc, info, key, is_monocle, direction):
+    """Focus the next or previous window with wrapping."""
+    command = []
+    children = info['tiled']
+    if key and is_monocle:
+        children = info[key]['children']
+    index = find_container_index(info, children)
+    length = len(children)
+    if length > 1:
+        if direction == 'next':
+            command.append('[con_id={}] focus'
+                           .format(children[(index + 1) % length]))
+        elif direction == 'prev':
+            command.append('[con_id={}] focus'
+                           .format(children[(index - 1) % length]))
+    elif is_monocle:
+        command.extend(i3dt_monocle_disable_commands(key, info))
+    execute_commands(ipc, command, '')
+
+
+def i3dt_focus_other(ipc, info, key, is_monocle):
+    """Focus the window in the other container."""
+    command = []
+    if info['scnd']['id']:
+        if is_monocle:
+            command.extend(i3dt_monocle_disable_commands(key, info))
+        other = 'main' if key == 'scnd' else 'scnd'
+        command.append('[con_id={}] focus'.format(info[other]['focus']))
+    else:
+        logging.warning('Window::Focus::Other::No other container')
+    execute_commands(ipc, command, '')
+
+
+def i3dt_focus_toggle(ipc, info, key, is_monocle):
+    """Focus the previously focused window."""
+    command = []
+    if is_monocle and \
+            (not key or FOCUS['previous'] not in info[key]['children']):
+        command.extend(i3dt_monocle_disable_commands(key, info))
+    if FOCUS['previous']:
+        command.append('[con_id={}] focus'.format(FOCUS['previous']))
+    else:
+        logging.warning('Window::Focus::Toggle::No previous window')
+    execute_commands(ipc, command, '')
+
+
 def i3dt_focus(ipc, event):
     """Different window focus events.
 
@@ -478,38 +524,70 @@ def i3dt_focus(ipc, event):
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     is_monocle = i3dt_monocle_enabled(key, info)
-    command = []
     if action in ['next', 'prev']:
-        children = info['tiled']
-        if key and is_monocle:
-            children = info[key]['children']
-        index = find_container_index(info, children)
-        length = len(children)
-        if length > 1:
-            if action == 'next':
-                command.append('[con_id={}] focus'
-                               .format(children[(index + 1) % length]))
-            elif action == 'prev':
-                command.append('[con_id={}] focus'
-                               .format(children[(index - 1) % length]))
-        elif is_monocle:
-            command.extend(i3dt_monocle_disable_commands(key, info))
+        i3dt_focus_next_prev(ipc, info, key, is_monocle, action)
     elif action == 'other':
-        if info['scnd']['id']:
-            if is_monocle:
-                command.extend(i3dt_monocle_disable_commands(key, info))
-            other = 'main' if key == 'scnd' else 'scnd'
-            command.append('[con_id={}] focus'.format(info[other]['focus']))
-        else:
-            logging.warning('Window::Focus::Other::No other container')
+        i3dt_focus_other(ipc, info, key, is_monocle)
     elif action == 'toggle':
-        if is_monocle and \
-                (not key or FOCUS['previous'] not in info[key]['children']):
-            command.extend(i3dt_monocle_disable_commands(key, info))
-        if FOCUS['previous']:
-            command.append('[con_id={}] focus'.format(FOCUS['previous']))
+        i3dt_focus_other(ipc, info, key, is_monocle)
+
+
+def i3dt_move_next_prev(ipc, info, direction):
+    """Move the focused window forward or backward."""
+    # Find the position of the focused window in the list of all windows
+    # and only perform the movement if it keeps the window within the
+    # container.
+    _, layout, children = find_parent_container(info)
+    command = []
+    if children:
+        movement = get_movement(layout, direction)
+        if direction == 'next':
+            if info['focused'] != children[-1]:
+                command.append('move {}'.format(movement))
+        elif direction == 'prev':
+            if info['focused'] != children[0]:
+                command.append('move {}'.format(movement))
+    execute_commands(ipc, command, '')
+
+
+def i3dt_move_other(ipc, info):
+    """Move the focused window to the other container."""
+    # Find the parent container of the window and then move the window to the
+    # other container. Make sure that the main container does not become empty.
+    command = []
+    if info['focused'] in info['main']['children']:
+        if len(info['main']['children']) == 1:
+            if info['scnd']['id']:
+                command.append('[con_id={}] focus'
+                               .format(info['scnd']['children'][0]))
+                command.append('swap container with con_id {}'
+                               .format(info['focused']))
+        elif info['scnd']['id']:
+            command.append('[con_id={}] move to mark {}'
+                           .format(info['focused'], info['scnd']['mark']))
+            command.append('[con_id={}] focus; focus child'
+                           .format(info['main']['id']))
         else:
-            logging.warning('Window::Focus::Toggle::No previous window')
+            create_container(ipc, 'scnd')
+    else:
+        command.append('[con_id={}] move to mark {}'
+                       .format(info['focused'], info['main']['mark']))
+        command.append('[con_id={}] focus; focus child'
+                       .format(info['scnd']['id']))
+    execute_commands(ipc, command, '')
+
+
+def i3dt_move_swap(ipc, info):
+    """Swap the focused window with other container."""
+    command = []
+    if info['scnd']['id']:
+        if info['focused'] in info['scnd']['children']:
+            command.append('[con_id={}] focus'
+                           .format(info['main']['focus']))
+        command.append('swap container with con_id {}'
+                       .format(info['scnd']['focus']))
+        command.append('[con_id={}] focus'
+                       .format(info['scnd']['focus']))
     execute_commands(ipc, command, '')
 
 
@@ -527,54 +605,12 @@ def i3dt_move(ipc, event):
     action = event.binding.command.split(" ")[-1]
     logging.info('Window::Move::%s', action.title())
     info = get_workspace_info(ipc)
-    command = []
     if action in ['next', 'prev']:
-        # Find the position of the focused window in the list of all windows
-        # and only perform the movement if it keeps the window within the
-        # container.
-        _, layout, children = find_parent_container(info)
-        if children:
-            movement = get_movement(layout, action)
-            if action == 'next':
-                if info['focused'] != children[-1]:
-                    command.append('move {}'.format(movement))
-            elif action == 'prev':
-                if info['focused'] != children[0]:
-                    command.append('move {}'.format(movement))
+        i3dt_move_next_prev(ipc, info, action)
     elif action == 'other':
-        # Find the parent container of the window and then move the window to
-        # the other container. Make sure that the main container does not
-        # become empty.
-        if info['focused'] in info['main']['children']:
-            if len(info['main']['children']) == 1:
-                if info['scnd']['id']:
-                    command.append('[con_id={}] focus'
-                                   .format(info['scnd']['children'][0]))
-                    command.append('swap container with con_id {}'
-                                   .format(info['focused']))
-            elif info['scnd']['id']:
-                command.append('[con_id={}] move to mark {}'
-                               .format(info['focused'], info['scnd']['mark']))
-                command.append('[con_id={}] focus; focus child'
-                               .format(info['main']['id']))
-            else:
-                create_container(ipc, 'scnd')
-        else:
-            command.append('[con_id={}] move to mark {}'
-                           .format(info['focused'], info['main']['mark']))
-            command.append('[con_id={}] focus; focus child'
-                           .format(info['scnd']['id']))
+        i3dt_move_other(ipc, info)
     elif action == 'swap':
-        if info['scnd']['id']:
-            if info['focused'] in info['scnd']['children']:
-                command.append('[con_id={}] focus'
-                               .format(info['main']['focus']))
-            command.append('swap container with con_id {}'
-                           .format(info['scnd']['focus']))
-            command.append('[con_id={}] focus'
-                           .format(info['scnd']['focus']))
-
-    execute_commands(ipc, command, '')
+        i3dt_move_swap(ipc, info)
 
 
 def i3dt_tabbed_toggle(ipc):
