@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
+"""A Python IPC implementation of dynamic tiling for the i3 window manager,
+trying to mimic the tiling behavior of the excellent DWM and XMONAD window
+managers, while utilizing the strengths of I3 and SWAY."""
 
-import i3ipc
-from i3ipc import Event
 import argparse
-import logging
 import copy
+import logging
 import os
 import signal
 import sys
+import i3ipc
+from i3ipc import Event
 
 ###############################################################################
 # Argument parser                                                             #
@@ -92,17 +95,16 @@ logging.basicConfig(
 # Global variables                                                            #
 ###############################################################################
 
-I3DT_VARIANT = None
-I3DT_OPACITY_ACTIVE = float(args.opacity_focused)
-I3DT_OPACITY_INACTIVE = float(args.opacity_inactive)
+wm_variant = None
+OPACITY_FOCUSED = float(args.opacity_focused)
+opacity_inactive = float(args.opacity_inactive)
 I3DT_LAYOUT = dict()
 I3DT_GLBL_MARK = 'I3DT_GLBL_{}'
 I3DT_MAIN_MARK = 'I3DT_MAIN_{}'
 I3DT_SCND_MARK = 'I3DT_SCND_{}'
 I3DT_SCND_TBBD_MARK = 'I3DT_SCND_{}_TBBD_'
-I3DT_WINDOW_PREV = []
-I3DT_WINDOW_CURR = []
-I3DT_HIDE_BAR = True if args.tabbed_hide_polybar.upper() == 'TRUE' else False
+FOCUS = {'previous': None, 'current': None}
+I3DT_HIDE_BAR = args.tabbed_hide_polybar.upper() == 'TRUE'
 
 # Workspaces to ignore.
 I3DT_WORKSPACE_IGNORE = []
@@ -125,23 +127,23 @@ def execute_commands(commands, preamble='Executing:'):
         if isinstance(commands, list):
             parsed_commands = [x for x in commands if x]
             commands = parsed_commands
-            reply = i3.command('; '.join(commands))
-            for i, c in enumerate(commands):
-                logging.debug('+ {} => {}'.format(c, reply[i].ipc_data))
-                if not reply[i].success:
-                    logging.error(reply[i].error)
+            reply = ipc.command('; '.join(commands))
+            for ind, cmd in enumerate(commands):
+                logging.debug('+ {} => {}'.format(cmd, reply[ind].ipc_data))
+                if not reply[ind].success:
+                    logging.error(reply[ind].error)
         else:
-            reply = i3.command(commands)
+            reply = ipc.command(commands)
             logging.debug('+ {} => {}'.format(commands, reply[0].ipc_data))
             if not reply[0].success:
                 logging.error(reply[0].error)
     return []
 
 
-def get_workspace_info(i3, workspace=[]):
+def get_workspace_info(ipc, workspace=[]):
 
     if not workspace:
-        tree = i3.get_tree()
+        tree = ipc.get_tree()
         focused = tree.find_focused()
         workspace = focused.workspace()
 
@@ -152,92 +154,92 @@ def get_workspace_info(i3, workspace=[]):
     glbl_mark = I3DT_GLBL_MARK.format(key)
     tbbd_mark = I3DT_SCND_TBBD_MARK.format(key)
     info = {
-            'mode': 'manual',
-            'name': workspace.name,
-            'layout': workspace.layout,
+        'mode': 'manual',
+        'name': workspace.name,
+        'layout': workspace.layout,
+        'children': [],
+        'tiled': [],
+        'floating': [],
+        'descendants': [],
+        'id': workspace.id,
+        'focused': None,
+        'fullscreen': False,
+        'unmanaged': [],
+        'glbl': {
+            'mark': glbl_mark,
+            'id': None,
+            'orientation': 'horizontal',
+            'layout': 'splith'
+            },
+        'main': {
+            'mark': main_mark,
+            'fullscreen': 0,
+            'id': None,
+            'focus': None,
+            'layout': 'splitv',
+            'children': []
+            },
+        'scnd': {
+            'mark': scnd_mark,
+            'fullscreen': 0,
+            'id': None,
+            'focus': None,
+            'layout': 'splitv',
             'children': [],
-            'tiled': [],
-            'floating': [],
-            'descendants': [],
-            'id': workspace.id,
-            'focused': None,
-            'fullscreen': False,
-            'unmanaged': [],
-            'glbl': {
-                'mark': glbl_mark,
-                'id': None,
-                'orientation': 'horizontal',
-                'layout': 'splith'
-                },
-            'main': {
-                'mark': main_mark,
-                'fullscreen': 0,
-                'id': None,
-                'focus': None,
-                'layout': 'splitv',
-                'children': []
-                },
-            'scnd': {
-                'mark': scnd_mark,
-                'fullscreen': 0,
-                'id': None,
-                'focus': None,
-                'layout': 'splitv',
-                'children': [],
-                'position': 'right'
-                },
-            'tbbd': {
-                'mark': tbbd_mark,
-                'indices': [],
-                'children': []
-                },
-            }
+            'position': 'right'
+            },
+        'tbbd': {
+            'mark': tbbd_mark,
+            'indices': [],
+            'children': []
+            },
+        }
 
     # Collect workspace information.
     if key not in I3DT_WORKSPACE_IGNORE:
         info['mode'] = 'tiled'
 
     info['descendants'] = workspace.descendants()
-    for c in workspace.leaves():
-        info['children'].append(c.id)
-        if c.floating and c.floating.endswith('on'):
-            info['floating'].append(c.id)
+    for con in workspace.leaves():
+        info['children'].append(con.id)
+        if con.floating and con.floating.endswith('on'):
+            info['floating'].append(con.id)
         else:
-            info['tiled'].append(c.id)
+            info['tiled'].append(con.id)
 
     main_index = None
     scnd_index = None
-    for i, c in enumerate(info['descendants']):
-        marks = c.marks
-        if c.focused:
-            info['focused'] = c.id
-            info['fullscreen'] = c.fullscreen_mode
+    for ind, con in enumerate(info['descendants']):
+        marks = con.marks
+        if con.focused:
+            info['focused'] = con.id
+            info['fullscreen'] = con.fullscreen_mode
         if glbl_mark in marks:
-            info['glbl']['id'] = c.id
-            info['glbl']['orientation'] = c.orientation
-            info['glbl']['layout'] = c.layout
+            info['glbl']['id'] = con.id
+            info['glbl']['orientation'] = con.orientation
+            info['glbl']['layout'] = con.layout
         elif main_mark in marks:
-            info['main']['id'] = c.id
-            if c.focus:
-                info['main']['focus'] = c.focus[0]
-            info['main']['fullscreen'] = c.fullscreen_mode
-            info['main']['layout'] = c.layout
-            info['main']['children'] = list(d.id for d in c.leaves())
-            main_index = i
+            info['main']['id'] = con.id
+            if con.focus:
+                info['main']['focus'] = con.focus[0]
+            info['main']['fullscreen'] = con.fullscreen_mode
+            info['main']['layout'] = con.layout
+            info['main']['children'] = list(d.id for d in con.leaves())
+            main_index = ind
         elif scnd_mark in marks:
-            info['scnd']['id'] = c.id
-            if c.focus:
-                info['scnd']['focus'] = c.focus[0]
-            info['scnd']['fullscreen'] = c.fullscreen_mode
-            info['scnd']['layout'] = c.layout
-            info['scnd']['children'] = list(d.id for d in c.leaves())
-            scnd_index = i
+            info['scnd']['id'] = con.id
+            if con.focus:
+                info['scnd']['focus'] = con.focus[0]
+            info['scnd']['fullscreen'] = con.fullscreen_mode
+            info['scnd']['layout'] = con.layout
+            info['scnd']['children'] = list(d.id for d in con.leaves())
+            scnd_index = ind
         else:
-            for m in marks:
-                if m.startswith(tbbd_mark):
+            for mark in marks:
+                if mark.startswith(tbbd_mark):
                     info['mode'] = 'monocle'
-                    info['tbbd']['indices'].append(int(m.split('_')[-1]))
-                    info['tbbd']['children'].append(c.id)
+                    info['tbbd']['indices'].append(int(mark.split('_')[-1]))
+                    info['tbbd']['children'].append(con.id)
                     break
 
     # Find the secondary container position.
@@ -276,15 +278,11 @@ def rename_secondary_container(info):
 
 
 def restore_container_layout(key, info):
-    global I3DT_LAYOUT
     if not info[key]['id']:
-        return
+        return []
 
     if info['name'] not in I3DT_LAYOUT:
         I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
-
-    if key not in I3DT_LAYOUT[info['name']]:
-        I3DT_LAYOUT[info['name']][key] = 'splitv'
 
     commands = []
     if info[key]['layout'] != I3DT_LAYOUT[info['name']][key]:
@@ -295,19 +293,19 @@ def restore_container_layout(key, info):
             commands.append('[con_id={}] layout {}'
                             .format(info[key]['children'][0],
                                     I3DT_LAYOUT[info['name']][key]))
-        if I3DT_VARIANT == 'sway':
+        if wm_variant == 'sway':
             if I3DT_LAYOUT[info['name']][key] in ['splith', 'splitv']:
-                for c in info[key]['children']:
-                    if c == info['focused']:
+                for cid in info[key]['children']:
+                    if cid == info['focused']:
                         commands.append('[con_id={}] opacity {}'
-                                        .format(c, I3DT_OPACITY_ACTIVE))
+                                        .format(cid, OPACITY_FOCUSED))
                     else:
                         commands.append('[con_id={}] opacity {}'
-                                        .format(c, I3DT_OPACITY_INACTIVE))
+                                        .format(cid, opacity_inactive))
             else:
-                for c in info[key]['children']:
+                for cid in info[key]['children']:
                     commands.append('[con_id={}] opacity {}'
-                                    .format(c, I3DT_OPACITY_ACTIVE))
+                                    .format(cid, OPACITY_FOCUSED))
     return commands
 
 
@@ -321,21 +319,21 @@ def save_container_layout(key, info):
 
 def find_parent_id(con_id, info):
     parent = None
-    containers = (c for c in info['descendants'] if not c.name)
-    for c in containers:
-        for d in c.descendants():
-            if d.id == con_id:
-                parent = c.id
+    containers = (con for con in info['descendants'] if not con.name)
+    for con in containers:
+        for dsc in con.descendants():
+            if dsc.id == con_id:
+                parent = con.id
                 break
     return parent
 
 
-def create_container(i3, name, con_id=None):
+def create_container(ipc, name, con_id=None):
     """Create a split container for the specified container id.
 
     Parameters
     ----------
-    i3 : i3ipc.Connection
+    ipc : i3ipc.Connection
         An i3ipc connection
     name : str
         The name of the target split container
@@ -347,7 +345,7 @@ def create_container(i3, name, con_id=None):
     logging.debug('Create container: {}'.format(name))
 
     # Get workspace information.
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
 
     # Exit if container already exists.
     if info[name]['id']:
@@ -384,7 +382,7 @@ def create_container(i3, name, con_id=None):
                 layout = info['main']['layout']
                 if (layout in ['splith', 'tabbed'] and move == 'right') or \
                         (layout in ['splitv', 'stacked'] and move == 'down'):
-                    for n in range(1, len(info['main']['children']) - ind):
+                    for num in range(1, len(info['main']['children']) - ind):
                         command.append('move {}'.format(move))
             else:
                 move = 'left'
@@ -398,13 +396,11 @@ def create_container(i3, name, con_id=None):
                 layout = info['main']['layout']
                 if (layout in ['splith', 'tabbed'] and move == 'left') \
                         or (layout in ['splitv', 'stacked'] and move == 'up'):
-                    for n in range(1, ind + 1):
+                    for num in range(1, ind + 1):
                         command.append('move {}'.format(move))
 
             # Move outside the split container.
             command.append('move {}'.format(move))
-            # TODO: Add option to set default split size
-            # TODO: Add variables to remember the split size
             if info['layout'] in ['splitv', 'stacked']:
                 command.append('splith')
                 command.append('resize set height 50 ppt')
@@ -416,7 +412,7 @@ def create_container(i3, name, con_id=None):
     command = execute_commands(command, '')
 
     # Find and mark the newly created split container.
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     parent = find_parent_id(con_id, info)
     command.append('[con_id={}] mark {}'
                    .format(parent, info[name]['mark']))
@@ -466,8 +462,8 @@ def find_container_index(info, con_ids=None):
     if not con_ids:
         con_ids = info['tiled']
     ind = 0
-    for c in con_ids:
-        if c == info['focused']:
+    for cid in con_ids:
+        if cid == info['focused']:
             break
         ind += 1
     return ind
@@ -487,10 +483,10 @@ def get_movement(layout, direction):
     return movement
 
 
-def i3dt_focus(i3, e):
-    action = e.binding.command.split(" ")[-1]
+def i3dt_focus(ipc, event):
+    action = event.binding.command.split(" ")[-1]
     logging.info('Window::Focus::{}'.format(action.title()))
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     is_monocle = i3dt_monocle_enabled(key, info)
     command = []
@@ -519,32 +515,32 @@ def i3dt_focus(i3, e):
             logging.warning('Window::Focus::Other::No other container')
     elif action == 'toggle':
         if is_monocle and \
-                (not key or I3DT_WINDOW_PREV not in info[key]['children']):
+                (not key or FOCUS['previous'] not in info[key]['children']):
             command.extend(i3dt_monocle_disable_commands(key, info))
-        if I3DT_WINDOW_PREV:
-            command.append('[con_id={}] focus'.format(I3DT_WINDOW_PREV))
+        if FOCUS['previous']:
+            command.append('[con_id={}] focus'.format(FOCUS['previous']))
         else:
             logging.warning('Window::Focus::Toggle::No previous window')
     execute_commands(command, '')
 
 
-def i3dt_move(i3, e):
-    action = e.binding.command.split(" ")[-1]
+def i3dt_move(ipc, event):
+    action = event.binding.command.split(" ")[-1]
     logging.info('Window::Move::{}'.format(action.title()))
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     command = []
     if action in ['next', 'prev']:
         # Find the position of the focused window in the list of all windows
         # and only perform the movement if it keeps the window within the
         # container.
-        parent, layout, children = find_parent_container(info)
+        _, layout, children = find_parent_container(info)
         if children:
             movement = get_movement(layout, action)
             if action == 'next':
-                if not info['focused'] == children[-1]:
+                if info['focused'] != children[-1]:
                     command.append('move {}'.format(movement))
             elif action == 'prev':
-                if not info['focused'] == children[0]:
+                if info['focused'] != children[0]:
                     command.append('move {}'.format(movement))
     elif action == 'other':
         # Find the parent container of the window and then move the window to
@@ -563,7 +559,7 @@ def i3dt_move(i3, e):
                 command.append('[con_id={}] focus; focus child'
                                .format(info['main']['id']))
             else:
-                create_container(i3, 'scnd')
+                create_container(ipc, 'scnd')
         else:
             command.append('[con_id={}] move to mark {}'
                            .format(info['focused'], info['main']['mark']))
@@ -582,15 +578,15 @@ def i3dt_move(i3, e):
     execute_commands(command, '')
 
 
-def i3dt_tabbed_toggle(i3, e):
+def i3dt_tabbed_toggle(ipc, event):
     logging.info('Workspace::Tabbed')
 
     global I3DT_LAYOUT
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
     if info['mode'] == 'monocle':
-        i3dt_monocle_toggle(i3)
+        i3dt_monocle_toggle(ipc)
         return
     command = []
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
@@ -615,8 +611,8 @@ def i3dt_tabbed_toggle(i3, e):
         execute_commands(command, '')
 
         # Find the newly created split container and mark it.
-        if not I3DT_VARIANT == 'sway':
-            info = get_workspace_info(i3)
+        if wm_variant != 'sway':
+            info = get_workspace_info(ipc)
             if not info['glbl']['id']:
                 glbl = info['descendants'][0].id
                 execute_commands('[con_id={}] mark {}'
@@ -624,7 +620,7 @@ def i3dt_tabbed_toggle(i3, e):
 
 
 def i3dt_monocle_disable_commands(key, info):
-    """Generate a list of i3 commands to disable the monocle mode.
+    """Generate a list of ipc commands to disable the monocle mode.
 
     Parameters
     ----------
@@ -650,7 +646,7 @@ def i3dt_monocle_disable_commands(key, info):
 
 
 def i3dt_monocle_enable_commands(key, info):
-    """Generate a list of i3 commands to enable the monocle mode.
+    """Generate a list of ipc commands to enable the monocle mode.
 
     Parameters
     ----------
@@ -670,22 +666,22 @@ def i3dt_monocle_enable_commands(key, info):
         commands.append('fullscreen enable')
     elif key and info[key]['id'] and not info[key]['fullscreen']:
         save_container_layout(key, info)
-        if not info[key]['layout'] == 'tabbed' \
+        if info[key]['layout'] != 'tabbed' \
                 and (len(info[key]['children']) > 1):
             commands.append('layout tabbed')
-            if I3DT_VARIANT == 'sway':
+            if wm_variant == 'sway':
                 for c in info[key]['children']:
                     commands.append('[con_id={}] opacity {}'
-                                    .format(c, I3DT_OPACITY_ACTIVE))
+                                    .format(c, OPACITY_FOCUSED))
         commands.append('[con_id={}] fullscreen toggle'
                         .format(info[key]['id']))
-        if not I3DT_VARIANT == 'sway':
+        if wm_variant != 'sway':
             commands.append('focus child')
     return commands
 
 
 def i3dt_monocle_toggle_commands(key, info):
-    """Generate a list of i3 commands to toggle the monocle mode.
+    """Generate a list of ipc commands to toggle the monocle mode.
 
     Parameters
     ----------
@@ -732,33 +728,33 @@ def i3dt_monocle_enabled(key, info):
     return enabled
 
 
-def i3dt_monocle_toggle(i3):
+def i3dt_monocle_toggle(ipc):
     """Toggle the monocle mode on or off.
 
     Parameters
     ----------
-    i3 : i3ipc.Connection
+    ipc : i3ipc.Connection
         An i3ipc connection
 
     """
     logging.info('Workspace::Monocle')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     commands = i3dt_monocle_toggle_commands(key, info)
     execute_commands(commands, '')
 
 
-def i3dt_mirror(i3):
+def i3dt_mirror(ipc):
     logging.info('Workspace::Mirror')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['scnd']['id'] and info['mode'] == 'tiled':
         execute_commands('[con_id={}] swap container with con_id {}'
                          .format(info['main']['id'], info['scnd']['id']))
 
 
-def i3dt_reflect(i3):
+def i3dt_reflect(ipc):
     logging.info('Workspace::Reflect')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     command = []
     if info['scnd']['id'] and info['mode'] == 'tiled':
         # Toggle split on the second container to create a workspace global
@@ -766,17 +762,17 @@ def i3dt_reflect(i3):
         command.append('[con_id={}] layout toggle split'
                        .format(info['scnd']['id']))
         # Sway does not create a global split container as i3 does.
-        if not I3DT_VARIANT == 'sway' and not info['glbl']['id']:
+        if wm_variant != 'sway' and not info['glbl']['id']:
             command = execute_commands(command)
-            info = get_workspace_info(i3)
+            info = get_workspace_info(ipc)
             command.append('[con_id={}] mark {}'
                            .format(info['descendants'][0].id,
                                    info['glbl']['mark']))
         # Update the layout of the containers.
         command = execute_commands(command)
-        info = get_workspace_info(i3)
+        info = get_workspace_info(ipc)
         orientation = 'horizontal'
-        if I3DT_VARIANT == 'sway' and info['layout'] == 'splitv':
+        if wm_variant == 'sway' and info['layout'] == 'splitv':
             orientation = 'vertical'
         else:
             orientation = info['glbl']['orientation']
@@ -789,13 +785,11 @@ def i3dt_reflect(i3):
         execute_commands(command, '')
 
 
-def i3dt_kill(i3, e):
+def i3dt_kill(ipc, event):
     logging.info('Window::Close')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
-    # floating = e.container.floating
-    # if floating and floating.endswith('on'): return
     command = []
     if info['focused'] in info['main']['children'] \
             and (len(info['main']['children']) == 1) \
@@ -805,12 +799,12 @@ def i3dt_kill(i3, e):
     execute_commands(command)
 
 
-def on_window_close(i3, e):
+def on_window_close(ipc, event):
     logging.info('Window::Close')
-    floating = e.container.floating
+    floating = event.container.floating
     if floating and floating.endswith('on'):
         return
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
     command = []
@@ -819,17 +813,17 @@ def on_window_close(i3, e):
             command.extend(rename_secondary_container(info))
         else:
             con_id = info['scnd']['children'][0]
-            create_container(i3, 'main', con_id)
+            create_container(ipc, 'main', con_id)
             command.append('[con_id={}] focus'.format(con_id))
     execute_commands(command)
 
 
-def on_workspace_focus(i3, e):
+def on_workspace_focus(ipc, event):
     global I3DT_LAYOUT
-    logging.info('Workspace::Focus::{}'.format(e.current.name))
-    info = get_workspace_info(i3, e.current)
+    logging.info('Workspace::Focus::{}'.format(event.current.name))
+    info = get_workspace_info(ipc, event.current)
     command = []
-    if not info['mode'] == 'manual':
+    if info['mode'] != 'manual':
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
             if I3DT_HIDE_BAR:
                 os.system("polybar-msg cmd hide 1>/dev/null")
@@ -841,12 +835,12 @@ def on_workspace_focus(i3, e):
         if info['unmanaged']:
             if info['main']['id']:
                 if not info['scnd']['id']:
-                    create_container(i3, 'scnd', info['unmanaged'][0])
+                    create_container(ipc, 'scnd', info['unmanaged'][0])
             elif len(info['unmanaged']) > 1:
                 unmanaged = info['unmanaged']
-                create_container(i3, 'main', unmanaged[0])
-                create_container(i3, 'scnd', unmanaged[1])
-            info = get_workspace_info(i3)
+                create_container(ipc, 'main', unmanaged[0])
+                create_container(ipc, 'scnd', unmanaged[1])
+            info = get_workspace_info(ipc)
             for i in info['unmanaged']:
                 command.append('[con_id={}] move to mark {}'
                                .format(i, info['scnd']['mark']))
@@ -856,20 +850,21 @@ def on_workspace_focus(i3, e):
     execute_commands(command)
 
 
-def on_window_new(i3, e):
+def on_window_new(ipc, event):
 
     logging.info('Window::New')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
 
+    window = event.container
     if info['mode'] == 'manual' \
-            or (e.container.name and e.container.name.startswith('polybar')) \
-            or (e.container.floating and e.container.floating.endswith('on')) \
+            or (window.name and window.name.startswith('polybar')) \
+            or (window.floating and window.floating.endswith('on')) \
             or len(info['tiled']) < 2:
         return
 
     if not info['main']['id']:
-        create_container(i3, 'main', info['tiled'][0])
-        create_container(i3, 'scnd', info['tiled'][1])
+        create_container(ipc, 'main', info['tiled'][0])
+        create_container(ipc, 'scnd', info['tiled'][1])
     elif not info['scnd']['id']:
         if info['mode'] == 'monocle':
             index = 0
@@ -878,7 +873,7 @@ def on_window_new(i3, e):
             execute_commands('mark {}'
                              .format(info['tbbd']['mark'] + str(index)))
         else:
-            create_container(i3, 'scnd')
+            create_container(ipc, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
             commands = []
@@ -889,62 +884,58 @@ def on_window_new(i3, e):
             execute_commands(commands, '')
 
 
-def on_window_focus(i3, e):
-    global I3DT_WINDOW_PREV
-    global I3DT_WINDOW_CURR
-
+def on_window_focus(ipc, event):
     logging.info('Window::Focus')
-    I3DT_WINDOW_PREV = I3DT_WINDOW_CURR
-    I3DT_WINDOW_CURR = e.container.id
+    FOCUS['previous'] = FOCUS['current']
+    FOCUS['current'] = event.container.id
     command = []
-    if I3DT_VARIANT == 'sway' and I3DT_WINDOW_PREV:
-        info = get_workspace_info(i3)
-        prev_key = find_parent_container_key(info, I3DT_WINDOW_PREV)
+    if wm_variant == 'sway' and FOCUS['previous']:
+        info = get_workspace_info(ipc)
+        prev_key = find_parent_container_key(info, FOCUS['previous'])
         if prev_key:
             logging.info('Window::Opacity')
             curr_key = find_parent_container_key(info)
-            if not curr_key == prev_key \
+            if curr_key != prev_key \
                     or info[curr_key]['layout'] in ['splith', 'splitv']:
                 command.append('[con_id={}] opacity {}'
-                               .format(I3DT_WINDOW_PREV,
-                                       I3DT_OPACITY_INACTIVE))
+                               .format(FOCUS['previous'], opacity_inactive))
         command.append('[con_id={}] opacity {}'
-                       .format(I3DT_WINDOW_CURR, I3DT_OPACITY_ACTIVE))
+                       .format(FOCUS['current'], OPACITY_FOCUSED))
         execute_commands(command, '')
 
 
-def on_window_floating(i3, e):
+def on_window_floating(ipc, event):
     logging.info('Window::Floating')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
     command = []
-    if e.container.floating == 'user_off':
+    if event.container.floating == 'user_off':
         if info['scnd']['id']:
             command.append('move to mark {}'
                            .format(info['scnd']['mark']))
         elif info['main']['id']:
-            create_container(i3, 'scnd')
+            create_container(ipc, 'scnd')
         else:
             if len(info['unmanaged']) > 1:
                 unmanaged = info['unmanaged']
-                create_container(i3, 'main', unmanaged[0])
-                create_container(i3, 'scnd', unmanaged[1])
-                info = get_workspace_info(i3)
-                for c in info['unmanaged']:
+                create_container(ipc, 'main', unmanaged[0])
+                create_container(ipc, 'scnd', unmanaged[1])
+                info = get_workspace_info(ipc)
+                for cid in info['unmanaged']:
                     command.append('[con_id={}] move to mark {}'
-                                   .format(c, info['scnd']['id']))
+                                   .format(cid, info['scnd']['id']))
     elif not info['main']['id'] and info['scnd']['id']:
         if len(info['scnd']['children']) == 1:
             command.extend(rename_secondary_container(info))
         else:
-            create_container(i3, 'main', info['scnd']['children'][0])
+            create_container(ipc, 'main', info['scnd']['children'][0])
     execute_commands(command)
 
 
-def on_window_move(i3, e):
+def on_window_move(ipc, event):
     logging.info('Window:move')
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     if info['mode'] == 'manual':
         return
     command = []
@@ -952,96 +943,94 @@ def on_window_move(i3, e):
         if len(info['scnd']['children']) == 1:
             command.extend(rename_secondary_container(info))
         else:
-            create_container(i3, 'main', info['scnd']['children'][0])
+            create_container(ipc, 'main', info['scnd']['children'][0])
     execute_commands(command)
 
 
-def i3dt_layout(i3, e):
+def i3dt_layout(ipc, event):
     logging.info('Container::Layout')
-    if not I3DT_VARIANT == 'sway':
+    if wm_variant != 'sway':
         execute_commands(['layout toggle tabbed split'], '')
         return
-    info = get_workspace_info(i3)
+    info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     if key:
         command = []
-        opacity = I3DT_OPACITY_ACTIVE
+        opacity = OPACITY_FOCUSED
         if info[key]['layout'] in ['splith', 'splitv']:
-            opacity = I3DT_OPACITY_INACTIVE
-        for c in info[key]['children']:
-            if not c == info['focused']:
-                command.append('[con_id={}] opacity {}'.format(c, opacity))
+            opacity = opacity_inactive
+        for cid in info[key]['children']:
+            if cid != info['focused']:
+                command.append('[con_id={}] opacity {}'.format(cid, opacity))
         command.append('[con_id={}] opacity {}'
-                       .format(info['focused'], I3DT_OPACITY_ACTIVE))
+                       .format(info['focused'], OPACITY_FOCUSED))
         execute_commands(command, '')
 
 
-def on_binding(i3, e):
-    if e.binding.command.startswith('nop'):
-        if e.binding.command.startswith('nop i3dt_focus'):
-            i3dt_focus(i3, e)
-        elif e.binding.command.startswith('nop i3dt_move'):
-            i3dt_move(i3, e)
-        elif e.binding.command == 'nop i3dt_reflect':
-            i3dt_reflect(i3)
-        elif e.binding.command == 'nop i3dt_mirror':
-            i3dt_mirror(i3)
-        elif e.binding.command == 'nop i3dt_monocle_toggle':
-            i3dt_monocle_toggle(i3)
-        elif e.binding.command == 'nop i3dt_tabbed_toggle':
-            i3dt_tabbed_toggle(i3, e)
-    elif e.binding.command == 'kill':
-        i3dt_kill(i3, e)
-    elif e.binding.command == 'layout toggle tabbed split':
-        i3dt_layout(i3, e)
+def on_binding(ipc, event):
+    if event.binding.command.startswith('nop'):
+        if event.binding.command.startswith('nop i3dt_focus'):
+            i3dt_focus(ipc, event)
+        elif event.binding.command.startswith('nop i3dt_move'):
+            i3dt_move(ipc, event)
+        elif event.binding.command == 'nop i3dt_reflect':
+            i3dt_reflect(ipc)
+        elif event.binding.command == 'nop i3dt_mirror':
+            i3dt_mirror(ipc)
+        elif event.binding.command == 'nop i3dt_monocle_toggle':
+            i3dt_monocle_toggle(ipc)
+        elif event.binding.command == 'nop i3dt_tabbed_toggle':
+            i3dt_tabbed_toggle(ipc, event)
+    elif event.binding.command == 'kill':
+        i3dt_kill(ipc, event)
+    elif event.binding.command == 'layout toggle tabbed split':
+        i3dt_layout(ipc, event)
 
 
-def remove_opacity(i3):
-    for workspace in i3.get_tree().workspaces():
+def remove_opacity(ipc):
+    for workspace in ipc.get_tree().workspaces():
         for w in workspace:
             w.command("opacity 1")
-    i3.main_quit()
+    ipc.main_quit()
     sys.exit(0)
 
 
-i3 = i3ipc.Connection()
+ipc = i3ipc.Connection()
 
 # Check if i3 or sway.
-version = i3.get_version().ipc_data
+version = ipc.get_version().ipc_data
 if 'variant' in version:
-    I3DT_VARIANT = version['variant']
+    wm_variant = version['variant']
 else:
-    I3DT_VARIANT = 'i3'
+    wm_variant = 'i3'
 
 # Find the focused window and set opacity for all windows.
-tree = i3.get_tree()
-leaves = tree.leaves()
 command = []
-for c in leaves:
-    if c.focused:
-        I3DT_WINDOW_CURR = c.id
-        if I3DT_VARIANT == 'sway':
+for con in ipc.get_tree().leaves():
+    if con.focused:
+        FOCUS['current'] = con.id
+        if wm_variant == 'sway':
             command.append(
-                    '[con_id={}] opacity {}'
-                    .format(c.id, I3DT_OPACITY_ACTIVE))
+                '[con_id={}] opacity {}'
+                .format(con.id, OPACITY_FOCUSED))
     else:
-        if I3DT_VARIANT == 'sway':
+        if wm_variant == 'sway':
             command.append(
-                    '[con_id={}] opacity {}'
-                    .format(c.id, I3DT_OPACITY_INACTIVE))
+                '[con_id={}] opacity {}'
+                .format(con.id, opacity_inactive))
 execute_commands(command, '')
 
 for sig in [signal.SIGINT, signal.SIGTERM]:
-    signal.signal(sig, lambda signal, frame: remove_opacity(i3))
+    signal.signal(sig, lambda signal, frame: remove_opacity(ipc))
 
 try:
-    i3.on(Event.BINDING, on_binding)
-    i3.on(Event.WINDOW_CLOSE, on_window_close)
-    i3.on(Event.WINDOW_FLOATING, on_window_floating)
-    i3.on(Event.WINDOW_FOCUS, on_window_focus)
-    i3.on(Event.WINDOW_MOVE, on_window_move)
-    i3.on(Event.WINDOW_NEW, on_window_new)
-    i3.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
-    i3.main()
+    ipc.on(Event.BINDING, on_binding)
+    ipc.on(Event.WINDOW_CLOSE, on_window_close)
+    ipc.on(Event.WINDOW_FLOATING, on_window_floating)
+    ipc.on(Event.WINDOW_FOCUS, on_window_focus)
+    ipc.on(Event.WINDOW_MOVE, on_window_move)
+    ipc.on(Event.WINDOW_NEW, on_window_new)
+    ipc.on(Event.WORKSPACE_FOCUS, on_workspace_focus)
+    ipc.main()
 finally:
-    i3.main_quit()
+    ipc.main_quit()
