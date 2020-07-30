@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Dynamic tiling for the I3 and SWAY window managers.
 
-A Python IPC implementation of dynamic tiling for the i3 window manager, trying
-to mimic the tiling behavior of the excellent DWM and XMONAD window managers,
-while utilizing the strengths of I3 and SWAY.
-"""
+A Python IPC implementation of dynamic tiling for the I3 and SWAY window
+managers, trying to mimic the tiling behavior of the excellent DWM and XMONAD
+window managers, while utilizing the strengths of I3 and SWAY.  """
 
 import argparse
 import copy
@@ -415,7 +414,7 @@ def get_movement(layout, direction):
     return movement
 
 
-def i3dt_focus_next_prev(ipc, info, key, is_monocle, direction):
+def ipc_focus_next_prev(ipc, info, key, is_monocle, direction):
     """Focus the next or previous window with wrapping."""
     command = []
     children = info['tiled']
@@ -431,16 +430,16 @@ def i3dt_focus_next_prev(ipc, info, key, is_monocle, direction):
             command.append('[con_id={}] focus'
                            .format(children[(index - 1) % length]))
     elif is_monocle:
-        command.extend(i3dt_monocle_disable_commands(key, info))
+        command.extend(ipc_monocle_disable_commands(key, info))
     execute_commands(ipc, command, '')
 
 
-def i3dt_focus_other(ipc, info, key, is_monocle):
+def ipc_focus_other(ipc, info, key, is_monocle):
     """Focus the window in the other container."""
     command = []
     if info['scnd']['id']:
         if is_monocle:
-            command.extend(i3dt_monocle_disable_commands(key, info))
+            command.extend(ipc_monocle_disable_commands(key, info))
         other = 'main' if key == 'scnd' else 'scnd'
         command.append('[con_id={}] focus'.format(info[other]['focus']))
     else:
@@ -448,12 +447,12 @@ def i3dt_focus_other(ipc, info, key, is_monocle):
     execute_commands(ipc, command, '')
 
 
-def i3dt_focus_toggle(ipc, info, key, is_monocle):
+def ipc_focus_toggle(ipc, info, key, is_monocle):
     """Focus the previously focused window."""
     command = []
     if is_monocle and \
             (not key or FOCUS['previous'] not in info[key]['children']):
-        command.extend(i3dt_monocle_disable_commands(key, info))
+        command.extend(ipc_monocle_disable_commands(key, info))
     if FOCUS['previous']:
         command.append('[con_id={}] focus'.format(FOCUS['previous']))
     else:
@@ -461,7 +460,7 @@ def i3dt_focus_toggle(ipc, info, key, is_monocle):
     execute_commands(ipc, command, '')
 
 
-def i3dt_focus(ipc, event):
+def ipc_focus(ipc, event):
     """Different window focus events.
 
     Parameters
@@ -476,16 +475,16 @@ def i3dt_focus(ipc, event):
     logging.info('Window::Focus::%s', action.title())
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
-    is_monocle = i3dt_monocle_enabled(key, info)
+    is_monocle = ipc_monocle_enabled(key, info)
     if action in ['next', 'prev']:
-        i3dt_focus_next_prev(ipc, info, key, is_monocle, action)
+        ipc_focus_next_prev(ipc, info, key, is_monocle, action)
     elif action == 'other':
-        i3dt_focus_other(ipc, info, key, is_monocle)
+        ipc_focus_other(ipc, info, key, is_monocle)
     elif action == 'toggle':
-        i3dt_focus_other(ipc, info, key, is_monocle)
+        ipc_focus_other(ipc, info, key, is_monocle)
 
 
-def i3dt_move_next_prev(ipc, info, direction):
+def ipc_move_next_prev(ipc, info, direction):
     """Move the focused window forward or backward."""
     # Find the position of the focused window in the list of all windows
     # and only perform the movement if it keeps the window within the
@@ -503,7 +502,7 @@ def i3dt_move_next_prev(ipc, info, direction):
     execute_commands(ipc, command, '')
 
 
-def i3dt_move_other(ipc, info):
+def ipc_move_other(ipc, info):
     """Move the focused window to the other container."""
     # Find the parent container of the window and then move the window to the
     # other container. Make sure that the main container does not become empty.
@@ -530,7 +529,7 @@ def i3dt_move_other(ipc, info):
     execute_commands(ipc, command, '')
 
 
-def i3dt_move_swap(ipc, info):
+def ipc_move_swap(ipc, info):
     """Swap the focused window with other container."""
     command = []
     if info['scnd']['id']:
@@ -544,7 +543,7 @@ def i3dt_move_swap(ipc, info):
     execute_commands(ipc, command, '')
 
 
-def i3dt_move(ipc, event):
+def ipc_move(ipc, event):
     """Different window movements.
 
     Parameters
@@ -559,14 +558,14 @@ def i3dt_move(ipc, event):
     logging.info('Window::Move::%s', action.title())
     info = get_workspace_info(ipc)
     if action in ['next', 'prev']:
-        i3dt_move_next_prev(ipc, info, action)
+        ipc_move_next_prev(ipc, info, action)
     elif action == 'other':
-        i3dt_move_other(ipc, info)
+        ipc_move_other(ipc, info)
     elif action == 'swap':
-        i3dt_move_swap(ipc, info)
+        ipc_move_swap(ipc, info)
 
 
-def i3dt_tabbed_disable(ipc, info):
+def ipc_tabbed_disable(ipc, info):
     """Disable tabbed mode."""
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
         if DATA['hide_bar']:
@@ -580,7 +579,7 @@ def i3dt_tabbed_disable(ipc, info):
         execute_commands(ipc, command, '')
 
 
-def i3dt_tabbed_enable(ipc, info):
+def ipc_tabbed_enable(ipc, info):
     """Enable tabbed mode."""
     if info['mode'] == 'tiled':
         if DATA['hide_bar']:
@@ -605,7 +604,7 @@ def i3dt_tabbed_enable(ipc, info):
                                  .format(glbl, info['glbl']['mark']), '')
 
 
-def i3dt_tabbed_toggle(ipc):
+def ipc_tabbed_toggle(ipc):
     """Toggle the tabbed mode on or off.
 
     Parameters
@@ -619,15 +618,15 @@ def i3dt_tabbed_toggle(ipc):
     if info['mode'] == 'manual':
         return
     if info['mode'] == 'monocle':
-        i3dt_monocle_toggle(ipc)
+        ipc_monocle_toggle(ipc)
         return
     if info['layout'] == 'tabbed' or info['glbl']['layout'] == 'tabbed':
-        i3dt_tabbed_disable(ipc, info)
+        ipc_tabbed_disable(ipc, info)
     elif info['mode'] == 'tiled':
-        i3dt_tabbed_enable(ipc, info)
+        ipc_tabbed_enable(ipc, info)
 
 
-def i3dt_monocle_disable_commands(key, info):
+def ipc_monocle_disable_commands(key, info):
     """Generate a list of ipc commands to disable the monocle mode.
 
     Parameters
@@ -653,7 +652,7 @@ def i3dt_monocle_disable_commands(key, info):
     return commands
 
 
-def i3dt_monocle_enable_commands(key, info):
+def ipc_monocle_enable_commands(key, info):
     """Generate a list of ipc commands to enable the monocle mode.
 
     Parameters
@@ -688,7 +687,7 @@ def i3dt_monocle_enable_commands(key, info):
     return commands
 
 
-def i3dt_monocle_toggle_commands(key, info):
+def ipc_monocle_toggle_commands(key, info):
     """Generate a list of ipc commands to toggle the monocle mode.
 
     Parameters
@@ -705,14 +704,14 @@ def i3dt_monocle_toggle_commands(key, info):
 
     """
     commands = []
-    if i3dt_monocle_enabled(key, info):
-        commands = i3dt_monocle_disable_commands(key, info)
+    if ipc_monocle_enabled(key, info):
+        commands = ipc_monocle_disable_commands(key, info)
     else:
-        commands = i3dt_monocle_enable_commands(key, info)
+        commands = ipc_monocle_enable_commands(key, info)
     return commands
 
 
-def i3dt_monocle_enabled(key, info):
+def ipc_monocle_enabled(key, info):
     """Check if monocle mode is enabled.
 
     Parameters
@@ -736,7 +735,7 @@ def i3dt_monocle_enabled(key, info):
     return enabled
 
 
-def i3dt_monocle_toggle(ipc):
+def ipc_monocle_toggle(ipc):
     """Toggle the monocle mode on or off.
 
     Parameters
@@ -748,11 +747,11 @@ def i3dt_monocle_toggle(ipc):
     logging.info('Workspace::Monocle')
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
-    commands = i3dt_monocle_toggle_commands(key, info)
+    commands = ipc_monocle_toggle_commands(key, info)
     execute_commands(ipc, commands, '')
 
 
-def i3dt_mirror(ipc):
+def ipc_mirror(ipc):
     """Mirror the secondary container.
 
     This function handles the moving the secondary container from one side the
@@ -771,7 +770,7 @@ def i3dt_mirror(ipc):
                          .format(info['main']['id'], info['scnd']['id']))
 
 
-def i3dt_reflect(ipc):
+def ipc_reflect(ipc):
     """Reflect the secondary container.
 
     This function handles the moving the secondary container between a
@@ -815,7 +814,7 @@ def i3dt_reflect(ipc):
         execute_commands(ipc, command, '')
 
 
-def i3dt_kill(ipc):
+def ipc_kill(ipc):
     """Close the focused window.
 
     This function handles the special case of closing a window when there is a
@@ -1044,7 +1043,7 @@ def on_window_move(ipc, event):
     execute_commands(ipc, command)
 
 
-def i3dt_layout(ipc, event):
+def ipc_layout(ipc, event):
     """React on layout binding event.
 
     Parameters
@@ -1087,22 +1086,22 @@ def on_binding(ipc, event):
 
     """
     if event.binding.command.startswith('nop'):
-        if event.binding.command.startswith('nop i3dt_focus'):
-            i3dt_focus(ipc, event)
-        elif event.binding.command.startswith('nop i3dt_move'):
-            i3dt_move(ipc, event)
-        elif event.binding.command == 'nop i3dt_reflect':
-            i3dt_reflect(ipc)
-        elif event.binding.command == 'nop i3dt_mirror':
-            i3dt_mirror(ipc)
-        elif event.binding.command == 'nop i3dt_monocle_toggle':
-            i3dt_monocle_toggle(ipc)
-        elif event.binding.command == 'nop i3dt_tabbed_toggle':
-            i3dt_tabbed_toggle(ipc)
+        if event.binding.command.startswith('nop ipc_focus'):
+            ipc_focus(ipc, event)
+        elif event.binding.command.startswith('nop ipc_move'):
+            ipc_move(ipc, event)
+        elif event.binding.command == 'nop ipc_reflect':
+            ipc_reflect(ipc)
+        elif event.binding.command == 'nop ipc_mirror':
+            ipc_mirror(ipc)
+        elif event.binding.command == 'nop ipc_monocle_toggle':
+            ipc_monocle_toggle(ipc)
+        elif event.binding.command == 'nop ipc_tabbed_toggle':
+            ipc_tabbed_toggle(ipc)
     elif event.binding.command == 'kill':
-        i3dt_kill(ipc)
+        ipc_kill(ipc)
     elif event.binding.command == 'layout toggle tabbed split':
-        i3dt_layout(ipc, event)
+        ipc_layout(ipc, event)
 
 
 def remove_opacity(ipc):

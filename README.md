@@ -1,9 +1,10 @@
 # i3-dynamic-tiling
 
-A Python IPC implementation of dynamic tiling for the i3 window manager, trying
-to mimic the tiling behavior of the excellent [dwm](http://dwm.suckless.org/)
-and [xmonad](https://xmonad.org/), while utilizing the strengths of
-[i3](https://i3wm.org/) and [sway](https://swaywm.org/).
+A Python IPC implementation of dynamic tiling for the [i3](https://i3wm.org/)
+and [sway](https://swaywm.org/) window managers, trying to mimic the tiling
+behavior of the excellent [dwm](http://dwm.suckless.org/) and
+[xmonad](https://xmonad.org/), while utilizing the strengths of `i3` and
+`sway`.
 
 ## Status
 
@@ -38,16 +39,17 @@ container.
 
 ### Focus
 
-Beyond the normal `i3` focus commands, the following are implemented:
+Beyond the normal `i3` and `sway` focus commands, the following are
+implemented:
 
-+ `i3dt_focus next/prev`: Focus the next window on the active workspace with
++ `ipc_focus next/prev`: Focus the next window on the active workspace with
   wrapping at the boundaries. For example, if focus _next_ on the last window
   of the workspace then the first window will be focused.
 
-+ `i3dt_focus other`: If the focused window is in the main container then the
++ `ipc_focus other`: If the focused window is in the main container then the
   last focused window in the secondary container will get focus and vice versa.
 
-+ `i3dt_focus toggle`: Toggle the focus between the last two focused windows.
++ `ipc_focus toggle`: Toggle the focus between the last two focused windows.
 
 All focus commands in the list above respects the _fullscreen_ state of the
 focused window, that is, if the focused window is in _fullscreen_ then the
@@ -57,24 +59,24 @@ focused window after the command will also be in _fullscreen_ mode.
 
 Beyond the normal `i3` move commands, the following are implemented:
 
-+ `i3dt_move next/prev`: Move the window within the parent container, without
++ `ipc_move next/prev`: Move the window within the parent container, without
   leaving the parent container.
 
-+ `i3dt_move other`: If the focused window is in the main container then move
++ `ipc_move other`: If the focused window is in the main container then move
   the window to the secondary container and vice versa. The focus is kept
   within the original container.
 
-+ `i3dt_move swap`: Swap the focused window with the focused window in other
++ `ipc_move swap`: Swap the focused window with the focused window in other
   container. The focus is moved to the main container.
 
 ### Secondary container position
 
 It is possible to change the position of the secondary container:
 
-+ `i3dt_reflect`: This command toggles the position of the secondary container
++ `ipc_reflect`: This command toggles the position of the secondary container
   between the horizontal and vertical relative to the main container.
 
-+ `i3dt_mirror`: This command toggles the position of the secondary container
++ `ipc_mirror`: This command toggles the position of the secondary container
   between the right and left hand side of the main container.
 
 ### Monocle alternatives
@@ -88,14 +90,14 @@ There are several alternatives the _monocle_ layout of `dwm` and `xmonad`:
 
 + _tabbed_: This package implements two different tabbed layouts:
 
-  + `i3dt_tabbed_toggle`: This version keeps the main and secondary containers
+  + `ipc_tabbed_toggle`: This version keeps the main and secondary containers
     but creates a global split container and applies the tabbed layout on all
     containers. This means that there will be two tab bars instead of one and
     therefore taking more screen real estate. I do not find this as intuitive
     as the version described below, but it is more in line with the `i3`
     workflow and does not alter the focus history.
 
-  + `i3dt_monocle_toggle`: This version toggles the fullscreen mode on the
+  + `ipc_monocle_toggle`: This version toggles the fullscreen mode on the
     focused split container (the main or the secondary) and then applies the
     tabbed layout. This might be, in my opinion, the most intuitive alternative
     to the _monocle_ layout.
@@ -172,43 +174,43 @@ workspace_auto_back_and_forth yes
 show_marks yes
 
 # Focus next cycle.
-bindsym $mod+j nop i3dt_focus next
+bindsym $mod+j nop ipc_focus next
 
 # Move next.
-bindsym $mod+shift+j nop i3dt_move next
+bindsym $mod+shift+j nop ipc_move next
 
 # Focus previous cycle.
-bindsym $mod+k nop i3dt_focus prev
+bindsym $mod+k nop ipc_focus prev
 
 # Move previous.
-bindsym $mod+shift+k nop i3dt_move prev
+bindsym $mod+shift+k nop ipc_move prev
 
 # Focus previous window toggle.
-bindsym $mod+i nop i3dt_focus toggle
+bindsym $mod+i nop ipc_focus toggle
 
 # Focus the other container.
-bindsym $mod+o nop i3dt_focus other
+bindsym $mod+o nop ipc_focus other
 
 # Move to the other container.
-bindsym $mod+shift+o nop i3dt_move other
+bindsym $mod+shift+o nop ipc_move other
 
 # Swap window with the other container.
-bindsym $mod+Return nop i3dt_move swap
+bindsym $mod+Return nop ipc_move swap
 
 # Toggle tabbed mode.
-bindsym $mod+space nop i3dt_tabbed_toggle
+bindsym $mod+space nop ipc_tabbed_toggle
 
 # Toggle fullscreen mode.
 bindsym $mod+Control+space fullscreen toggle
 
 # Toggle monocle mode.
-bindsym $mod+Shift+space nop i3dt_monocle_toggle
+bindsym $mod+Shift+space nop ipc_monocle_toggle
 
 # Toggle secondary to the side of or below of main.
-bindsym $mod+backslash nop i3dt_reflect
+bindsym $mod+backslash nop ipc_reflect
 
 # Toggle secondary to the right or left hand side of main.
-bindsym $mod+shift+backslash nop i3dt_mirror
+bindsym $mod+shift+backslash nop ipc_mirror
 
 # Toggle workspace.
 bindsym $mod+Tab workspace back_and_forth
