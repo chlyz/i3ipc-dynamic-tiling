@@ -82,10 +82,6 @@ def get_workspace_info(ipc, workspace=None):
 
     # Initialize the dictionary.
     key = workspace.name
-    main_mark = 'I3DT_MAIN_{}'.format(key)
-    scnd_mark = 'I3DT_SCND_{}'.format(key)
-    glbl_mark = 'I3DT_GLBL_{}'.format(key)
-    tbbd_mark = 'I3DT_SCND_{}_TBBD'.format(key)
     info = {
         'mode': 'manual',
         'name': workspace.name,
@@ -99,13 +95,13 @@ def get_workspace_info(ipc, workspace=None):
         'fullscreen': False,
         'unmanaged': [],
         'glbl': {
-            'mark': glbl_mark,
+            'mark': 'I3DT_GLBL_{}'.format(key),
             'id': None,
             'orientation': 'horizontal',
             'layout': 'splith'
             },
         'main': {
-            'mark': main_mark,
+            'mark': 'I3DT_MAIN_{}'.format(key),
             'fullscreen': 0,
             'id': None,
             'focus': None,
@@ -113,18 +109,12 @@ def get_workspace_info(ipc, workspace=None):
             'children': []
             },
         'scnd': {
-            'mark': scnd_mark,
+            'mark': 'I3DT_SCND_{}'.format(key),
             'fullscreen': 0,
             'id': None,
             'focus': None,
             'layout': 'splitv',
             'children': [],
-            'position': 'right'
-            },
-        'tbbd': {
-            'mark': tbbd_mark,
-            'indices': [],
-            'children': []
             },
         }
 
@@ -140,56 +130,29 @@ def get_workspace_info(ipc, workspace=None):
         else:
             info['tiled'].append(con.id)
 
-    main_index = None
-    scnd_index = None
-    for ind, con in enumerate(info['descendants']):
+    for con in info['descendants']:
         marks = con.marks
         if con.focused:
             info['focused'] = con.id
             info['fullscreen'] = con.fullscreen_mode
-        if glbl_mark in marks:
+        if info['glbl']['mark'] in marks:
             info['glbl']['id'] = con.id
             info['glbl']['orientation'] = con.orientation
             info['glbl']['layout'] = con.layout
-        elif main_mark in marks:
+        elif info['main']['mark'] in marks:
             info['main']['id'] = con.id
             if con.focus:
                 info['main']['focus'] = con.focus[0]
             info['main']['fullscreen'] = con.fullscreen_mode
             info['main']['layout'] = con.layout
             info['main']['children'] = list(d.id for d in con.leaves())
-            main_index = ind
-        elif scnd_mark in marks:
+        elif info['scnd']['mark'] in marks:
             info['scnd']['id'] = con.id
             if con.focus:
                 info['scnd']['focus'] = con.focus[0]
             info['scnd']['fullscreen'] = con.fullscreen_mode
             info['scnd']['layout'] = con.layout
             info['scnd']['children'] = list(d.id for d in con.leaves())
-            scnd_index = ind
-        else:
-            for mark in marks:
-                if mark.startswith(tbbd_mark):
-                    info['mode'] = 'monocle'
-                    info['tbbd']['indices'].append(int(mark.split('_')[-1]))
-                    info['tbbd']['children'].append(con.id)
-                    break
-
-    # Find the secondary container position.
-    if main_index and scnd_index:
-        orientation = 'horizontal'
-        if info['glbl']['orientation']:
-            orientation = info['glbl']['orientation']
-        if orientation == 'horizontal':
-            if main_index < scnd_index:
-                info['scnd']['position'] = 'right'
-            else:
-                info['scnd']['position'] = 'left'
-        else:
-            if main_index < scnd_index:
-                info['scnd']['position'] = 'below'
-            else:
-                info['scnd']['position'] = 'above'
 
     # Find unmanaged windows.
     info['unmanaged'] = copy.deepcopy(info['tiled'])
@@ -962,24 +925,17 @@ def on_window_new(ipc, event):
     info = get_workspace_info(ipc)
 
     window = event.container
-    if info['mode'] == 'manual' \
-            or (window.name and window.name.startswith('polybar')) \
-            or (window.floating and window.floating.endswith('on')) \
-            or len(info['tiled']) < 2:
+    is_bar = window.name and window.name.startswith('polybar')
+    is_floating = window.floating and window.floating.endswith('on')
+    if info['mode'] == 'manual' or is_bar \
+            or is_floating or len(info['tiled']) < 2:
         return
 
     if not info['main']['id']:
         create_container(ipc, 'main', info['tiled'][0])
         create_container(ipc, 'scnd', info['tiled'][1])
     elif not info['scnd']['id']:
-        if info['mode'] == 'monocle':
-            index = 0
-            if info['tbbd']['indices']:
-                index = max(info['tbbd']['indices']) + 1
-            execute_commands(ipc, 'mark {}'
-                             .format(info['tbbd']['mark'] + str(index)))
-        else:
-            create_container(ipc, 'scnd')
+        create_container(ipc, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
             commands = []
