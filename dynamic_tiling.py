@@ -587,9 +587,10 @@ def i3dt_tabbed_enable(ipc, info):
             os.system("polybar-msg cmd hide 1>/dev/null")
         command = []
         for k in ['main', 'scnd']:
-            save_container_layout(k, info)
-            command.append('[con_id={}] layout tabbed'
-                           .format(info[k]['children'][0]))
+            if info[k]['id']:
+                save_container_layout(k, info)
+                command.append('[con_id={}] layout tabbed'
+                               .format(info[k]['children'][0]))
         if info['scnd']['id']:
             command.append('[con_id={}] layout tabbed'
                            .format(info['scnd']['id']))
