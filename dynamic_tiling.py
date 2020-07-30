@@ -62,12 +62,12 @@ def execute_commands(ipc, commands, preamble='Executing:'):
             commands = parsed_commands
             reply = ipc.command('; '.join(commands))
             for ind, cmd in enumerate(commands):
-                logging.debug('+ {} => {}'.format(cmd, reply[ind].ipc_data))
+                logging.debug('+ %s => %s', cmd, reply[ind].ipc_data)
                 if not reply[ind].success:
                     logging.error(reply[ind].error)
         else:
             reply = ipc.command(commands)
-            logging.debug('+ {} => {}'.format(commands, reply[0].ipc_data))
+            logging.debug('+ %s => %s', commands, reply[0].ipc_data)
             if not reply[0].success:
                 logging.error(reply[0].error)
     return []
@@ -280,7 +280,7 @@ def create_container(ipc, name, con_id=None):
         focused container id)
 
     """
-    logging.debug('Create container: {}'.format(name))
+    logging.debug('Create container: %s', name)
 
     # Get workspace information.
     info = get_workspace_info(ipc)
@@ -474,7 +474,7 @@ def i3dt_focus(ipc, event):
 
     """
     action = event.binding.command.split(" ")[-1]
-    logging.info('Window::Focus::{}'.format(action.title()))
+    logging.info('Window::Focus::%s', action.title())
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
     is_monocle = i3dt_monocle_enabled(key, info)
@@ -525,7 +525,7 @@ def i3dt_move(ipc, event):
 
     """
     action = event.binding.command.split(" ")[-1]
-    logging.info('Window::Move::{}'.format(action.title()))
+    logging.info('Window::Move::%s', action.title())
     info = get_workspace_info(ipc)
     command = []
     if action in ['next', 'prev']:
@@ -880,7 +880,7 @@ def on_workspace_focus(ipc, event):
         An i3ipc workspace event
 
     """
-    logging.info('Workspace::Focus::{}'.format(event.current.name))
+    logging.info('Workspace::Focus::%s', event.current.name)
     info = get_workspace_info(ipc, event.current)
     command = []
     if info['mode'] != 'manual':
