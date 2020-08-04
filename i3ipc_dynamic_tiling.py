@@ -481,7 +481,7 @@ def i3ipc_focus(ipc, event):
     elif action == 'other':
         i3ipc_focus_other(ipc, info, key, is_monocle)
     elif action == 'toggle':
-        i3ipc_focus_other(ipc, info, key, is_monocle)
+        i3ipc_focus_toggle(ipc, info, key, is_monocle)
 
 
 def i3ipc_move_next_prev(ipc, info, direction):
