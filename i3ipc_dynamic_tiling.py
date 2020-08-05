@@ -1057,7 +1057,6 @@ def i3ipc_layout(ipc, event):
     # pylint: disable=unused-argument
     logging.info('Container::Layout')
     if DATA['variant'] != 'sway':
-        execute_commands(ipc, ['layout toggle tabbed split'], '')
         return
     info = get_workspace_info(ipc)
     key = find_parent_container_key(info)
