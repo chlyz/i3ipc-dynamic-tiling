@@ -145,10 +145,10 @@ def get_workspace_info(ipc, workspace=None):
 
     # Find unmanaged windows.
     info['unmanaged'] = copy.deepcopy(info['tiled'])
-    if info['unmanaged']:
-        for cid in info['main']['children'] + info['scnd']['children']:
-            if cid in info['unmanaged']:
-                info['unmanaged'].remove(cid)
+    for cid in info['main']['children']:
+        info['unmanaged'].remove(cid)
+    for cid in info['scnd']['children']:
+        info['unmanaged'].remove(cid)
 
     return info
 
