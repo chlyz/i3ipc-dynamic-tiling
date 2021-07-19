@@ -954,10 +954,8 @@ def on_window_new(ipc, event):
 
     commands = []
     if not info['main']['id']:
-        if info['scnd']['id']:
-            create_container(ipc, 'main', info['tiled'][0])
-        else:
-            create_container(ipc, 'main', info['tiled'][0])
+        create_container(ipc, 'main', info['tiled'][0])
+        if not info['scnd']['id']:
             create_container(ipc, 'scnd', info['tiled'][1])
         commands.append('[con_id={}] focus'
                         .format(info['focused']))
