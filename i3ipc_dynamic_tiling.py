@@ -933,20 +933,25 @@ def on_window_new(ipc, event):
             or is_floating or len(info['tiled']) < 2:
         return
 
+    commands = []
     if not info['main']['id']:
-        create_container(ipc, 'main', info['tiled'][0])
-        create_container(ipc, 'scnd', info['tiled'][1])
+        if info['scnd']['id']:
+            create_container(ipc, 'main', info['tiled'][0])
+        else:
+            create_container(ipc, 'main', info['tiled'][0])
+            create_container(ipc, 'scnd', info['tiled'][1])
+        commands.append('[con_id={}] focus'
+                        .format(info['focused']))
     elif not info['scnd']['id']:
         create_container(ipc, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
-            commands = []
             commands.append('[con_id={}] move to mark {}'
                             .format(info['focused'], info['scnd']['mark']))
             commands.append('[con_id={}] focus'
                             .format(info['focused']))
-            execute_commands(ipc, commands, '')
 
+    execute_commands(ipc, commands, '')
 
 def on_window_focus(ipc, event):
     """React on window focus event.
