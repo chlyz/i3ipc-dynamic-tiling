@@ -885,27 +885,41 @@ def on_workspace_focus(ipc, event):
     info = get_workspace_info(ipc, event.current)
     commands = []
     if info['mode'] != 'manual':
+
+        # Toggle bar appropriatly.
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
             if DATA['hide_bar']:
                 os.system("polybar-msg cmd hide 1>/dev/null")
         else:
             if DATA['hide_bar']:
                 os.system("polybar-msg cmd show 1>/dev/null")
+
+        # Make sure the layout is set.
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
+
+        # Make sure that all windows are managed.
         if info['unmanaged']:
+            focused = info['focused']
+            # Create the containers.
             if info['main']['id']:
                 if not info['scnd']['id']:
                     create_container(ipc, 'scnd', info['unmanaged'][0])
-            elif len(info['unmanaged']) > 1:
-                unmanaged = info['unmanaged']
-                create_container(ipc, 'main', unmanaged[0])
-                create_container(ipc, 'scnd', unmanaged[1])
+            else:
+                create_container(ipc, 'main', info['unmanaged'][0])
+                if not info['scnd']['id'] \
+                        and len(info['unmanaged']) > 1:
+                    create_container(ipc, 'scnd', info['unmanaged'][1])
+
+            # Move the remaining unmanaged windows to the secondary container.
             info = get_workspace_info(ipc)
             if info['scnd']['id']:
                 for i in info['unmanaged']:
                     commands.append('[con_id={}] move to mark {}'
                                    .format(i, info['scnd']['mark']))
+
+            commands.append('[con_id={}] focus'
+                            .format(focused))
         else:
             if info['scnd']['id'] and not info['main']['id']:
                 create_container(ipc, 'main', info['tiled'][0])
