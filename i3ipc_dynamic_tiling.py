@@ -150,6 +150,8 @@ def get_workspace_info(ipc, workspace=None):
     for cid in info['scnd']['children']:
         info['unmanaged'].remove(cid)
 
+    logging.debug('Workspace info: %s', info)
+
     return info
 
 
@@ -232,14 +234,9 @@ def create_container(ipc, name, con_id=None):
         focused container id)
 
     """
-    logging.debug('Create container: %s', name)
 
     # Get workspace information.
     info = get_workspace_info(ipc)
-
-    # Exit if container already exists.
-    if info[name]['id']:
-        raise ValueError('Container already exist!')
 
     # Get the window that should be contained and make sure it is
     # focused.
@@ -249,6 +246,13 @@ def create_container(ipc, name, con_id=None):
         con_id = focused
     else:
         command.append('[con_id={}] focus'.format(con_id))
+
+    logging.debug('Create container: %s:%s', name, con_id)
+
+    # Exit if container already exists.
+    if info[name]['id']:
+        logging.error('Container already exist!')
+        return
 
     # Remove any marks that may exist.
     command.append('[con_id={}] unmark'.format(con_id))
@@ -901,6 +905,7 @@ def on_workspace_focus(ipc, event):
         # Make sure that all windows are managed.
         if info['unmanaged']:
             focused = info['focused']
+
             # Create the containers.
             if info['main']['id']:
                 if not info['scnd']['id']:
