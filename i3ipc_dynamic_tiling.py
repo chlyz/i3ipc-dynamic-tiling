@@ -150,6 +150,8 @@ def get_workspace_info(ipc, workspace=None):
     for cid in info['scnd']['children']:
         info['unmanaged'].remove(cid)
 
+    logging.debug('Workspace info: %s', info)
+
     return info
 
 
@@ -232,14 +234,9 @@ def create_container(ipc, name, con_id=None):
         focused container id)
 
     """
-    logging.debug('Create container: %s', name)
 
     # Get workspace information.
     info = get_workspace_info(ipc)
-
-    # Exit if container already exists.
-    if info[name]['id']:
-        raise ValueError('Container already exist!')
 
     # Get the window that should be contained and make sure it is
     # focused.
@@ -249,6 +246,13 @@ def create_container(ipc, name, con_id=None):
         con_id = focused
     else:
         command.append('[con_id={}] focus'.format(con_id))
+
+    logging.debug('Create container: %s:%s', name, con_id)
+
+    # Exit if container already exists.
+    if info[name]['id']:
+        logging.error('Container already exist!')
+        return
 
     # Remove any marks that may exist.
     command.append('[con_id={}] unmark'.format(con_id))
@@ -883,33 +887,53 @@ def on_workspace_focus(ipc, event):
     """
     logging.info('Workspace::Focus::%s', event.current.name)
     info = get_workspace_info(ipc, event.current)
-    command = []
+    commands = []
     if info['mode'] != 'manual':
+
+        # Toggle bar appropriatly.
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
             if DATA['hide_bar']:
                 os.system("polybar-msg cmd hide 1>/dev/null")
         else:
             if DATA['hide_bar']:
                 os.system("polybar-msg cmd show 1>/dev/null")
+
+        # Make sure the layout is set.
         if info['name'] not in I3DT_LAYOUT:
             I3DT_LAYOUT[info['name']] = {'main': 'splitv', 'scnd': 'splitv'}
+
+        # Make sure that all windows are managed.
         if info['unmanaged']:
+            focused = info['focused']
+
+            # Create the containers.
             if info['main']['id']:
                 if not info['scnd']['id']:
                     create_container(ipc, 'scnd', info['unmanaged'][0])
-            elif len(info['unmanaged']) > 1:
-                unmanaged = info['unmanaged']
-                create_container(ipc, 'main', unmanaged[0])
-                create_container(ipc, 'scnd', unmanaged[1])
+            else:
+                create_container(ipc, 'main', info['unmanaged'][0])
+                if not info['scnd']['id'] \
+                        and len(info['unmanaged']) > 1:
+                    create_container(ipc, 'scnd', info['unmanaged'][1])
+
+            # Move the remaining unmanaged windows to the secondary container.
             info = get_workspace_info(ipc)
             if info['scnd']['id']:
                 for i in info['unmanaged']:
-                    command.append('[con_id={}] move to mark {}'
+                    commands.append('[con_id={}] move to mark {}'
                                    .format(i, info['scnd']['mark']))
+
+            commands.append('[con_id={}] focus'
+                            .format(focused))
+        else:
+            if info['scnd']['id'] and not info['main']['id']:
+                create_container(ipc, 'main', info['tiled'][0])
+                commands.append('[con_id={}] focus'
+                                .format(info['focused']))
     else:
         if DATA['hide_bar']:
             os.system("polybar-msg cmd show 1>/dev/null")
-    execute_commands(ipc, command)
+    execute_commands(ipc, commands)
 
 
 def on_window_new(ipc, event):
@@ -933,20 +957,23 @@ def on_window_new(ipc, event):
             or is_floating or len(info['tiled']) < 2:
         return
 
+    commands = []
     if not info['main']['id']:
         create_container(ipc, 'main', info['tiled'][0])
-        create_container(ipc, 'scnd', info['tiled'][1])
+        if not info['scnd']['id']:
+            create_container(ipc, 'scnd', info['tiled'][1])
+        commands.append('[con_id={}] focus'
+                        .format(info['focused']))
     elif not info['scnd']['id']:
         create_container(ipc, 'scnd')
     else:
         if info['focused'] in info['main']['children']:
-            commands = []
             commands.append('[con_id={}] move to mark {}'
                             .format(info['focused'], info['scnd']['mark']))
             commands.append('[con_id={}] focus'
                             .format(info['focused']))
-            execute_commands(ipc, commands, '')
 
+    execute_commands(ipc, commands, '')
 
 def on_window_focus(ipc, event):
     """React on window focus event.
