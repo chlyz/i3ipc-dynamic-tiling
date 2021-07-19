@@ -883,7 +883,7 @@ def on_workspace_focus(ipc, event):
     """
     logging.info('Workspace::Focus::%s', event.current.name)
     info = get_workspace_info(ipc, event.current)
-    command = []
+    commands = []
     if info['mode'] != 'manual':
         if info['glbl']['layout'] == 'tabbed' or info['mode'] == 'monocle':
             if DATA['hide_bar']:
@@ -904,12 +904,17 @@ def on_workspace_focus(ipc, event):
             info = get_workspace_info(ipc)
             if info['scnd']['id']:
                 for i in info['unmanaged']:
-                    command.append('[con_id={}] move to mark {}'
+                    commands.append('[con_id={}] move to mark {}'
                                    .format(i, info['scnd']['mark']))
+        else:
+            if info['scnd']['id'] and not info['main']['id']:
+                create_container(ipc, 'main', info['tiled'][0])
+                commands.append('[con_id={}] focus'
+                                .format(info['focused']))
     else:
         if DATA['hide_bar']:
             os.system("polybar-msg cmd show 1>/dev/null")
-    execute_commands(ipc, command)
+    execute_commands(ipc, commands)
 
 
 def on_window_new(ipc, event):
